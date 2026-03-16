@@ -1,0 +1,83 @@
+# =============================================================
+# docker-compose.yml — GranoVital IA
+# Levanta: MySQL + Redis + API FastAPI + (Celery worker opcional)
+# Uso: docker-compose up -d
+# Trazabilidad: RNF-03 (disponibilidad), RNF-06 (escalabilidad)
+# =============================================================
+
+version: "3.9"
+
+services:
+
+  # ── Base de datos MySQL 8.0 ─────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: granovital_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_cambiar
+      MYSQL_DATABASE: granovital_ia
+      MYSQL_USER: granovital_user
+      MYSQL_PASSWORD: granovital_password_cambiar
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./granovital_ia_database.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (caché y cola Celery) ──────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: granovital_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes   # Persistencia AOF (RNF-03)
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ── API FastAPI ──────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: granovital_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app          # Hot reload en desarrollo
+      - media_files:/app/media  # Imágenes subidas (análisis IA)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql_data:
+  redis_data:
+  media_files:
