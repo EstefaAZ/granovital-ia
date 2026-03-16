@@ -7,7 +7,7 @@
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, DateTime, Enum,
-    ForeignKey, Text, TINYINT, UniqueConstraint
+    ForeignKey, Text, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -108,7 +108,7 @@ class Usuario(Base):
 
     @property
     def esta_activo(self) -> bool:
-        return self.estado_cuenta == "activo"
+        return bool(self.estado_cuenta == "activo")
 
     def __repr__(self) -> str:
         return f"<Usuario id={self.id_usuario} correo='{self.correo}' rol='{self.rol.nombre_rol if self.rol else None}'>"

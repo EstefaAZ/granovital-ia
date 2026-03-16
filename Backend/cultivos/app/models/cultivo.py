@@ -17,7 +17,7 @@
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, DateTime,
-    Numeric, Enum, ForeignKey, Text, TINYINT,
+    Numeric, Enum, ForeignKey, Text,
 )
 from sqlalchemy.orm import relationship
 

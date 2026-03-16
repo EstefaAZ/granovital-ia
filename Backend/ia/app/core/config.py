@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # Umbral minimo de confianza para reportar un diagnostico
     UMBRAL_CONFIANZA_MINIMA: float = 0.60
 
+    # RN-03 - horas maximas para datos del M03
+    HORAS_DATOS_VALIDOS: int = 24
+
     class Config:
         env_file = ".env"
         case_sensitive = True

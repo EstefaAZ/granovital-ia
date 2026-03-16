@@ -1,16 +1,27 @@
-# Entorno virtual
+# Entornos virtuales
 .venv/
+venv/
+env/
 
-# Variables de entorno
+# Variables de entorno (contienen contraseñas)
 .env
 
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
 # VS Code
 .vscode/
 
-# Sistema
+# Sistema operativo
 Thumbs.db
 .DS_Store
+
+# Logs
+*.log
+
+# Base de datos local
+*.db
+*.sqlite3
