@@ -30,11 +30,11 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 COPY . .
 
 # Puerto expuesto
-EXPOSE 8001
+EXPOSE 8000
 
 # Usuario no-root por seguridad (RNF-04)
 RUN adduser --disabled-password --gecos "" appuser
 USER appuser
 
 # Comando de inicio
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

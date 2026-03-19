@@ -30,11 +30,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Gestiona el inicio y cierre de la aplicación.
-    Aquí se pueden inicializar conexiones (Redis, MQTT broker, etc.)
-    """
     logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION}")
+    from app.core.database import engine, Base
+    from app.models import usuario
+    Base.metadata.create_all(bind=engine)
+    logger.info("Tablas creadas correctamente")
     yield
     logger.info("Apagando la aplicación correctamente")
 

@@ -1,0 +1,176 @@
+# =============================================================
+# docker-compose.yml — GranoVital IA (Global)
+# Levanta: MySQL + Redis + 7 módulos + API Gateway
+# Uso: docker-compose up -d
+# =============================================================
+
+version: "3.9"
+
+services:
+
+  # ── Base de datos MySQL 8.0 ─────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: granovital_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: Eaz1234*
+      MYSQL_DATABASE: granovital_ia
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pEaz1234*"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: granovital_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ── Módulo 01 — Login ────────────────────────────────────────
+  login:
+    build:
+      context: ./backend/granovital_login/granovital
+    container_name: granovital_login
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    env_file: ./backend/granovital_login/granovital/.env
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001
+
+  # ── Módulo 02 — Cultivos ─────────────────────────────────────
+  cultivos:
+    build:
+      context: ./backend/cultivos
+    container_name: granovital_cultivos
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    env_file: ./backend/cultivos/.env
+    environment:
+      DB_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8002
+
+  # ── Módulo 03 — Monitoreo ────────────────────────────────────
+  monitoreo:
+    build:
+      context: ./backend/monitoreo
+    container_name: granovital_monitoreo
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    env_file: ./backend/monitoreo/.env
+    environment:
+      DB_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8003
+
+  # ── Módulo 04 — IA ───────────────────────────────────────────
+  ia:
+    build:
+      context: ./backend/ia
+    container_name: granovital_ia
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    env_file: ./backend/ia/.env
+    environment:
+      DB_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8004
+
+  # ── Módulo 05 — Trazabilidad ─────────────────────────────────
+  trazabilidad:
+    build:
+      context: ./backend/trazabilidad
+    container_name: granovital_trazabilidad
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    env_file: ./backend/trazabilidad/.env
+    environment:
+      DB_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8005
+
+  # ── Módulo 06 — Mercado ──────────────────────────────────────
+  mercado:
+    build:
+      context: ./backend/mercado
+    container_name: granovital_mercado
+    restart: unless-stopped
+    ports:
+      - "8006:8006"
+    env_file: ./backend/mercado/app/.env
+    environment:
+      DB_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8006
+
+  # ── Módulo 07 — Reportes ─────────────────────────────────────
+  reportes:
+    build:
+      context: ./backend/reportes
+    container_name: granovital_reportes
+    restart: unless-stopped
+    ports:
+      - "8007:8007"
+    env_file: ./backend/reportes/app/.env
+    environment:
+      DB_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8007
+
+  # ── API Gateway ──────────────────────────────────────────────
+  gateway:
+    build:
+      context: ./backend/api_gateway
+    container_name: granovital_gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      URL_AUTH: http://login:8001
+      URL_CULTIVOS: http://cultivos:8002
+      URL_MONITOREO: http://monitoreo:8003
+      URL_IA: http://ia:8004
+      URL_TRAZABILIDAD: http://trazabilidad:8
