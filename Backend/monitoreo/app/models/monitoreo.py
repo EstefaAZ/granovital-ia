@@ -93,10 +93,10 @@ class MonitoreoAmbiental(Base):
         DateTime, nullable=False, default=datetime.utcnow,
         comment="Marca de tiempo UTC de la lectura - clave para RN-03"
     )
-    id_cultivo        = Column(
-        Integer,
-        ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),
-        nullable=False,
+    id_cultivo = Column(
+    Integer,
+    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE", use_alter=True),
+    nullable=False,
     )
 
     def __repr__(self) -> str:
@@ -176,10 +176,10 @@ class MonitoreoSuelo(Base):
         DateTime, nullable=False, default=datetime.utcnow,
         comment="Marca de tiempo UTC de la lectura - clave para RN-03"
     )
-    id_cultivo         = Column(
-        Integer,
-        ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),
-        nullable=False,
+    id_cultivo = Column(
+    Integer,
+    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE", use_alter=True),
+    nullable=False,
     )
 
     def __repr__(self) -> str:

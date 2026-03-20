@@ -2,11 +2,13 @@
 // modulo_06_mercado / frontend/src/services/mercadoService.js
 // ==============================================================
 
+import { authService } from "./authService";
+
 const API_BASE   = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 const TIMEOUT_MS = 8000;
 
 async function peticion(ruta, opciones = {}) {
-  const token = localStorage.getItem("access_token");
+  const token = authService.getAccessToken();
   const ctrl  = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {

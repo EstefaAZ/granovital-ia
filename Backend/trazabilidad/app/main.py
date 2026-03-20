@@ -25,6 +25,10 @@ async def lifespan(app: FastAPI):
     logger.info(f"RF-11: humedad objetivo secado = {settings.SECADO_HUMEDAD_OBJETIVO}%")
     logger.info(f"RF-11: horas minimas secado = {settings.SECADO_HORAS_MINIMAS}h")
     logger.info(f"RN-05: URL base QR = {settings.URL_BASE_SISTEMA}")
+    from app.core.database import engine, Base
+    from app.models import trazabilidad
+    Base.metadata.create_all(bind=engine)
+    logger.info("Tablas de Trazabilidad creadas correctamente")
     yield
     logger.info("Modulo Trazabilidad detenido.")
 

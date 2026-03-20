@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.api.v1.reportes import router as reportes_router, auditoria_router
+from app.core.database import engine, Base
+from app.models import reportes  # noqa: F401 — registra modelos en Base
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,6 +20,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     import os
     os.makedirs(settings.REPORTES_DIR, exist_ok=True)
+    Base.metadata.create_all(bind=engine)
+    logger.info("Tablas de Reportes creadas correctamente")
     logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Directorio reportes: {settings.REPORTES_DIR}")
     yield
@@ -34,6 +38,7 @@ app = FastAPI(
         "Log de auditoría append-only (RNF-05)."
     ),
     lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 app.add_middleware(

@@ -25,6 +25,10 @@ async def lifespan(app: FastAPI):
     logger.info(f"RNF-01: timeout inferencia = {settings.TIMEOUT_INFERENCIA_SEG}s")
     logger.info(f"RN-03:  umbral datos validos = {settings.HORAS_DATOS_VALIDOS}h")
     logger.info(f"RNF-08: directorio modelos = {settings.DIR_MODELOS}")
+    from app.core.database import engine, Base
+    from app.models import analisis
+    Base.metadata.create_all(bind=engine)
+    logger.info("Tablas de IA creadas correctamente")
     yield
     logger.info("Modulo IA detenido.")
 

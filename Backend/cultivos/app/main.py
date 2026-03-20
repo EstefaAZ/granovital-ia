@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION}")
+    from app.core.database import engine, Base
+    from app.models import cultivo
+    Base.metadata.create_all(bind=engine)
+    logger.info("Tablas de Cultivos creadas correctamente")
     yield
     logger.info("Modulo de Cultivos detenido correctamente")
 

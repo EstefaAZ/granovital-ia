@@ -25,9 +25,11 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION}")
-    logger.info(
-        f"RN-03: umbral de datos validos = {settings.HORAS_DATOS_VALIDOS} horas"
-    )
+    logger.info(f"RN-03: umbral de datos validos = {settings.HORAS_DATOS_VALIDOS} horas")
+    from app.core.database import engine, Base
+    from app.models import monitoreo
+    Base.metadata.create_all(bind=engine)
+    logger.info("Tablas de Monitoreo creadas correctamente")
     yield
     logger.info("Modulo de Monitoreo detenido correctamente")
 

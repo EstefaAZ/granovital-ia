@@ -3,11 +3,13 @@
 // Cliente HTTP — Modulo de Trazabilidad
 // ==============================================================
 
+import { authService } from "./authService";
+
 const API_BASE   = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 const TIMEOUT_MS = 8000;
 
 async function peticion(ruta, opciones = {}) {
-  const token      = localStorage.getItem("access_token");
+  const token = authService.getAccessToken();
   const controller = new AbortController();
   const timer      = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {

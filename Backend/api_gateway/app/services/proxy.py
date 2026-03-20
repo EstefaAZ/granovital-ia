@@ -20,7 +20,7 @@ async def reenviar_peticion(request: Request, url_destino: str) -> Response:
     params = str(request.url.query) if request.url.query else None
 
     try:
-        async with httpx.AsyncClient(timeout=settings.TIMEOUT_SERVICIOS) as client:
+        async with httpx.AsyncClient(timeout=settings.TIMEOUT_SERVICIOS, follow_redirects=False) as client:
             respuesta = await client.request(
                 method=request.method,
                 url=url_destino,

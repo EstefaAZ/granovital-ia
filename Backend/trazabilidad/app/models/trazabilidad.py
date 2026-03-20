@@ -146,10 +146,10 @@ class TrazabilidadLote(Base):
     observaciones        = Column(Text, nullable=True)
 
     # --- Relaciones ---
-    id_cultivo           = Column(
-        Integer,
-        ForeignKey("tbl_cultivo.id_cultivo", ondelete="RESTRICT"),
-        nullable=False,
+    id_cultivo = Column(
+    Integer,
+    nullable=False,
+    comment="FK a tbl_cultivo - integridad gestionada por MySQL",
     )
     id_usuario_creador   = Column(Integer, nullable=False)
     fecha_creacion       = Column(DateTime, nullable=False, default=datetime.utcnow)

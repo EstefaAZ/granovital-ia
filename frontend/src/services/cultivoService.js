@@ -5,6 +5,8 @@
 // RNF-04: adjunta el token JWT en cada solicitud
 // ==============================================================
 
+import { authService } from "./authService";
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 
 // Tiempo maximo de espera por peticion (RNF-01)
@@ -15,7 +17,7 @@ const TIMEOUT_MS = 8000;
  * Lanza un error con el mensaje del servidor si la respuesta no es OK.
  */
 async function peticion(ruta, opciones = {}) {
-  const token = localStorage.getItem("access_token");
+  const token = authService.getAccessToken();
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);

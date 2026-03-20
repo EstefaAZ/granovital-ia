@@ -71,11 +71,11 @@ class Cultivo(Base):
     )
     observaciones  = Column(Text, nullable=True)
     fecha_registro = Column(DateTime, nullable=False, default=datetime.utcnow)
-    id_usuario     = Column(
-        Integer,
-        ForeignKey("tbl_usuario.id_usuario", ondelete="CASCADE"),
-        nullable=False,
-        comment="Caficultor propietario del cultivo",
+    id_usuario = Column(
+    Integer,
+    ForeignKey("tbl_usuario.id_usuario", ondelete="CASCADE", use_alter=True),
+    nullable=False,
+    comment="Caficultor propietario del cultivo",
     )
 
     # Relaciones

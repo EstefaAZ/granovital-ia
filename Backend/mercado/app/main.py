@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.api.v1.mercado import router as mercado_router
+from app.core.database import engine, Base
+from app.models import mercado  # noqa: F401 — registra modelos en Base
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,13 +18,14 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    logger.info("Tablas de Mercado creadas correctamente")
     logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"RF-13: histórico precios = {settings.MESES_HISTORICO_PRECIO} meses")
     logger.info(f"RF-14: histórico demanda = {settings.MESES_HISTORICO_DEMANDA} meses")
     logger.info(f"Umbral alerta variación = {settings.UMBRAL_VARIACION_ALERTA_PCT}%")
     yield
     logger.info("Módulo Mercado detenido.")
-
 
 app = FastAPI(
     title=settings.APP_NAME,

@@ -81,10 +81,10 @@ class AnalisisImagen(Base):
     nombre_imagen      = Column(String(200), nullable=True)
     tamano_imagen_kb   = Column(Integer, nullable=True)
     fecha_analisis     = Column(DateTime, nullable=False, default=datetime.utcnow)
-    id_cultivo         = Column(
-        Integer,
-        ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),
-        nullable=False,
+    id_cultivo = Column(
+    Integer,
+    nullable=False,
+    comment="FK a tbl_cultivo - integridad gestionada por MySQL",
     )
     id_usuario         = Column(Integer, nullable=False)
 
@@ -131,10 +131,10 @@ class PrediccionFitosanitaria(Base):
     precipitacion_usada = Column(Float, nullable=True)
     version_modelo     = Column(String(30), nullable=True)
     fecha_prediccion   = Column(DateTime, nullable=False, default=datetime.utcnow)
-    id_cultivo         = Column(
-        Integer,
-        ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),
-        nullable=False,
+    id_cultivo = Column(
+    Integer,
+    nullable=False,
+    comment="FK a tbl_cultivo - integridad gestionada por MySQL",
     )
     id_usuario         = Column(Integer, nullable=False)
 
@@ -174,10 +174,10 @@ class RecomendacionRiego(Base):
     precipitacion_usada = Column(Float, nullable=True)
     version_modelo      = Column(String(30), nullable=True)
     fecha_recomendacion = Column(DateTime, nullable=False, default=datetime.utcnow)
-    id_cultivo          = Column(
-        Integer,
-        ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),
-        nullable=False,
+    id_cultivo = Column(
+    Integer,
+    nullable=False,
+    comment="FK a tbl_cultivo - integridad gestionada por MySQL",
     )
     id_usuario          = Column(Integer, nullable=False)
 
@@ -223,9 +223,9 @@ class RecomendacionFertilizacion(Base):
     materia_organica_usada = Column(Float, nullable=True)
     version_modelo      = Column(String(30), nullable=True)
     fecha_recomendacion = Column(DateTime, nullable=False, default=datetime.utcnow)
-    id_cultivo          = Column(
-        Integer,
-        ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),
-        nullable=False,
+    id_cultivo = Column(
+    Integer,
+    nullable=False,
+    comment="FK a tbl_cultivo - integridad gestionada por MySQL",
     )
     id_usuario          = Column(Integer, nullable=False)

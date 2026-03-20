@@ -2,12 +2,14 @@
 // modulo_07_reportes / frontend/src/services/reportesService.js
 // ==============================================================
 
+import { authService } from "./authService";
+
 const API_BASE   = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 const TIMEOUT_MS = 10000;  // 10s — la generación puede tardar un poco más
 
 async function peticion(ruta, opciones = {}) {
-  const token = localStorage.getItem("access_token");
-  const nombre = localStorage.getItem("nombre_usuario") || "Administrador";
+  const token = authService.getAccessToken();
+  const nombre = sessionStorage.getItem("gv_nombre") || "Administrador";
   const ctrl  = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
