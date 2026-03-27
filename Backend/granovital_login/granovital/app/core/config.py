@@ -36,7 +36,7 @@ class Settings(BaseSettings):
         )
 
     # ── JWT ───────────────────────────────────────────────────
-    JWT_SECRET_KEY: str = "dev_secret_key_cambiar_en_produccion"
+    JWT_SECRET_KEY: str = "S4nt1yEs73f4n14u4sug4Ar1d1l4Zu1l3t4gR4c1aN0L0r3NZ4T0b14SB4Tm4nC4"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7

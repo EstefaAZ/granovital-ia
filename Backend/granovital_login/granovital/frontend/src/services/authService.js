@@ -4,7 +4,7 @@
 // Trazabilidad: RF-01, RF-02 | RNF-04 (tokens en memoria)
 // =============================================================
 
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 
 // Almacenamiento en memoria (más seguro que localStorage para tokens)
 // El refresh token puede guardarse en una cookie HttpOnly en producción

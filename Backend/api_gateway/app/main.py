@@ -133,7 +133,7 @@ def servicios():
     return {
         "auth":         settings.URL_AUTH,
         "cultivos":     settings.URL_CULTIVOS,
-        "onitoreo":    settings.URL_MONITOREO,
+        "monitoreo":    settings.URL_MONITOREO,
         "ia":           settings.URL_IA,
         "trazabilidad": settings.URL_TRAZABILIDAD,
         "mercado":      settings.URL_MERCADO,
