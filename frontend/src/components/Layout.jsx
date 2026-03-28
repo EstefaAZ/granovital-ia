@@ -4,7 +4,7 @@
 // RN-01: navegación filtrada por rol
 // =============================================================
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { getMenuPorRol } from "./menuConfig";
@@ -14,9 +14,11 @@ import {
   X,
   ChevronRight,
   Coffee,
+  User,
+  Settings,
+  ChevronDown,
 } from "lucide-react";
 
-// ── Paleta de colores café/tierra ────────────────────────────
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -43,7 +45,6 @@ const styles = `
     color: var(--texto-oscuro);
   }
 
-  /* ── Layout contenedor ── */
   .gv-layout {
     display: flex;
     min-height: 100vh;
@@ -76,7 +77,6 @@ const styles = `
     transform: translateX(calc(-1 * var(--sidebar-w)));
   }
 
-  /* Logo */
   .gv-sidebar-logo {
     padding: 24px 20px 20px;
     border-bottom: 1px solid rgba(196,154,108,0.2);
@@ -111,7 +111,6 @@ const styles = `
     text-transform: uppercase;
   }
 
-  /* Rol badge */
   .gv-rol-badge {
     margin: 16px 20px 8px;
     padding: 6px 12px;
@@ -124,7 +123,6 @@ const styles = `
     text-align: center;
   }
 
-  /* Nav items */
   .gv-nav {
     flex: 1;
     padding: 8px 12px;
@@ -198,7 +196,6 @@ const styles = `
     transform: translateX(2px);
   }
 
-  /* Logout */
   .gv-sidebar-footer {
     padding: 12px;
     border-top: 1px solid rgba(196,154,108,0.2);
@@ -265,7 +262,6 @@ const styles = `
     background: var(--crema-oscura);
   }
 
-  /* Breadcrumb / título de página */
   .gv-page-title {
     font-family: 'Playfair Display', serif;
     font-size: 18px;
@@ -275,11 +271,23 @@ const styles = `
 
   .gv-navbar-spacer { flex: 1; }
 
-  /* Avatar usuario */
-  .gv-user-info {
+  /* ── DROPDOWN PERFIL ── */
+  .gv-user-trigger {
     display: flex;
     align-items: center;
     gap: 10px;
+    cursor: pointer;
+    padding: 6px 10px 6px 6px;
+    border-radius: 24px;
+    border: 1px solid transparent;
+    transition: all var(--transition);
+    user-select: none;
+    position: relative;
+  }
+
+  .gv-user-trigger:hover {
+    background: var(--crema-oscura);
+    border-color: var(--crema-oscura);
   }
 
   .gv-user-name {
@@ -310,7 +318,101 @@ const styles = `
     flex-shrink: 0;
   }
 
-  /* ── CONTENIDO PRINCIPAL ── */
+  .gv-chevron {
+    color: var(--cafe-claro);
+    transition: transform var(--transition);
+    flex-shrink: 0;
+  }
+
+  .gv-chevron.open {
+    transform: rotate(180deg);
+  }
+
+  /* Dropdown menu */
+  .gv-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 220px;
+    background: #fff;
+    border: 1px solid var(--crema-oscura);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(44,26,14,0.12);
+    overflow: hidden;
+    z-index: 200;
+    animation: dropIn 0.15s ease;
+  }
+
+  @keyframes dropIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .gv-dropdown-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--crema-oscura);
+  }
+
+  .gv-dropdown-nombre {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cafe-oscuro);
+  }
+
+  .gv-dropdown-correo {
+    font-size: 11px;
+    color: var(--cafe-claro);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .gv-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--cafe-medio);
+    cursor: pointer;
+    transition: background var(--transition);
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-family: 'DM Sans', sans-serif;
+    text-decoration: none;
+  }
+
+  .gv-dropdown-item:hover {
+    background: var(--crema);
+  }
+
+  .gv-dropdown-item svg {
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+
+  .gv-dropdown-divider {
+    height: 1px;
+    background: var(--crema-oscura);
+    margin: 4px 0;
+  }
+
+  .gv-dropdown-item.danger {
+    color: #B91C1C;
+  }
+
+  .gv-dropdown-item.danger svg {
+    opacity: 1;
+  }
+
+  .gv-dropdown-item.danger:hover {
+    background: #FEF2F2;
+  }
+
+  /* ── MAIN ── */
   .gv-main {
     margin-left: var(--sidebar-w);
     margin-top: var(--navbar-h);
@@ -324,7 +426,6 @@ const styles = `
     margin-left: 0;
   }
 
-  /* ── OVERLAY móvil ── */
   .gv-overlay {
     display: none;
     position: fixed;
@@ -333,7 +434,6 @@ const styles = `
     z-index: 99;
   }
 
-  /* ── Responsive ── */
   @media (max-width: 768px) {
     .gv-navbar { left: 0 !important; }
     .gv-main   { margin-left: 0 !important; }
@@ -341,7 +441,6 @@ const styles = `
   }
 `;
 
-// ── Nombres de página por ruta ────────────────────────────────
 const PAGE_TITLES = {
   "/dashboard":    "Dashboard",
   "/cultivos":     "Mis Cultivos",
@@ -353,42 +452,56 @@ const PAGE_TITLES = {
   "/perfil":       "Mi Perfil",
 };
 
-// ── Componente principal ──────────────────────────────────────
 export default function Layout({ children, currentPath = "/" }) {
-  const { usuario, logout, tieneRol } = useAuth();
+  const { usuario, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarAbierto, setSidebarAbierto] = useState(true);
+  const [dropdownAbierto, setDropdownAbierto] = useState(false);
+  const dropdownRef = useRef(null);
 
   const rol = usuario?.rol?.nombre_rol || "";
-  const menuItems = getMenuPorRol(rol);
-  const pageTitle = PAGE_TITLES[currentPath] || "GranoVital IA";
 
-  // Inicial del nombre para el avatar
-  const inicial = usuario?.nombre
-    ? usuario.nombre.charAt(0).toUpperCase()
-    : "U";
+  // Filtrar "perfil" del menú lateral — va solo en el dropdown
+  const menuItems = getMenuPorRol(rol).filter(item => item.key !== "perfil");
+
+  const pageTitle = PAGE_TITLES[currentPath] || "GranoVital IA";
+  const inicial = usuario?.nombre?.charAt(0).toUpperCase() || "U";
+  const nombreCompleto = `${usuario?.nombre || ""} ${usuario?.apellido || ""}`.trim();
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownAbierto(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleLogout = async () => {
+    setDropdownAbierto(false);
     await logout();
     navigate("/login");
   };
 
-  const toggleSidebar = () => setSidebarAbierto((v) => !v);
+  const irA = (path) => {
+    setDropdownAbierto(false);
+    navigate(path);
+  };
 
   return (
     <>
       <style>{styles}</style>
 
       <div className="gv-layout">
-        {/* ── Overlay móvil ── */}
         <div
           className={`gv-overlay ${sidebarAbierto ? "visible" : ""}`}
-          onClick={toggleSidebar}
+          onClick={() => setSidebarAbierto(false)}
         />
 
         {/* ── SIDEBAR ── */}
         <aside className={`gv-sidebar ${sidebarAbierto ? "" : "collapsed"}`}>
-          {/* Logo */}
           <div className="gv-sidebar-logo">
             <div className="gv-logo-icon">
               <Coffee size={18} color="#F5ECD7" />
@@ -399,10 +512,8 @@ export default function Layout({ children, currentPath = "/" }) {
             </div>
           </div>
 
-          {/* Badge de rol */}
           {rol && <div className="gv-rol-badge">{rol}</div>}
 
-          {/* Navegación */}
           <nav className="gv-nav">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -425,7 +536,6 @@ export default function Layout({ children, currentPath = "/" }) {
             })}
           </nav>
 
-          {/* Footer con logout */}
           <div className="gv-sidebar-footer">
             <button className="gv-logout-btn" onClick={handleLogout}>
               <LogOut size={18} />
@@ -436,7 +546,7 @@ export default function Layout({ children, currentPath = "/" }) {
 
         {/* ── NAVBAR ── */}
         <header className={`gv-navbar ${sidebarAbierto ? "" : "sidebar-collapsed"}`}>
-          <button className="gv-toggle-btn" onClick={toggleSidebar}>
+          <button className="gv-toggle-btn" onClick={() => setSidebarAbierto(v => !v)}>
             {sidebarAbierto ? <X size={18} /> : <Menu size={18} />}
           </button>
 
@@ -444,12 +554,50 @@ export default function Layout({ children, currentPath = "/" }) {
 
           <div className="gv-navbar-spacer" />
 
-          <div className="gv-user-info">
-            <div>
-              <div className="gv-user-name">{usuario?.nombre || "Usuario"}</div>
-              <div className="gv-user-rol">{rol}</div>
+          {/* Avatar con dropdown */}
+          <div ref={dropdownRef} style={{ position: "relative" }}>
+            <div
+              className="gv-user-trigger"
+              onClick={() => setDropdownAbierto(v => !v)}
+            >
+              <div>
+                <div className="gv-user-name">{nombreCompleto || "Usuario"}</div>
+                <div className="gv-user-rol">{rol}</div>
+              </div>
+              <div className="gv-avatar">{inicial}</div>
+              <ChevronDown
+                size={14}
+                className={`gv-chevron ${dropdownAbierto ? "open" : ""}`}
+              />
             </div>
-            <div className="gv-avatar">{inicial}</div>
+
+            {/* Dropdown */}
+            {dropdownAbierto && (
+              <div className="gv-dropdown">
+                <div className="gv-dropdown-header">
+                  <div className="gv-dropdown-nombre">{nombreCompleto}</div>
+                  <div className="gv-dropdown-correo">{usuario?.correo}</div>
+                </div>
+
+                <button
+                  className="gv-dropdown-item"
+                  onClick={() => irA("/perfil")}
+                >
+                  <User size={15} />
+                  Mi perfil
+                </button>
+
+                <div className="gv-dropdown-divider" />
+
+                <button
+                  className="gv-dropdown-item danger"
+                  onClick={handleLogout}
+                >
+                  <LogOut size={15} />
+                  Cerrar sesión
+                </button>
+              </div>
+            )}
           </div>
         </header>
 

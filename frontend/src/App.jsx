@@ -8,6 +8,7 @@ import InteligenciaArtificial from './pages/InteligenciaArtificial';
 import Trazabilidad from './pages/Trazabilidad';
 import Mercado from './pages/Mercado';
 import Reportes from './pages/Reportes';
+import Perfil from './pages/Perfil';
 
 // ── Ruta protegida con Layout ─────────────────────────────────
 const RutaProtegida = ({ children }) => {
@@ -57,6 +58,7 @@ function AppRoutes() {
       <Route path="/trazabilidad" element={<RutaProtegida><Trazabilidad /></RutaProtegida>} />
       <Route path="/mercado"      element={<RutaProtegida><Mercado /></RutaProtegida>} />
       <Route path="/reportes"     element={<RutaProtegida><Reportes /></RutaProtegida>} />
+      <Route path="/perfil" element={<RutaProtegida><Perfil /></RutaProtegida>} />
 
       {/* Rutas legacy — redirigen a las nuevas */}
       <Route path="/admin/dashboard"     element={<Navigate to="/dashboard" replace />} />
