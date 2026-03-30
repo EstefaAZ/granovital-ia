@@ -1,15 +1,21 @@
-# Backend Dependencies
+# Backend/requirements.txt
+# BUG-032 FIX: versiones actualizadas — las antiguas (fastapi==0.75, sqlalchemy==1.4)
+# son incompatibles con los requirements.txt de cada módulo y rompen el entorno.
+# Usar los requirements.txt individuales de cada módulo para instalar dependencias.
+# Este archivo es solo referencia de versiones mínimas del ecosistema.
 
-fastapi==0.75.0
-sqlalchemy==1.4.27
-mysql-connector-python==8.0.26
-pandas==1.3.3
-numpy==1.21.2
-scikit-learn==0.24.2
-tensorflow==2.6.0
-pytest==6.2.4
-redis==3.5.3
-pyjwt==2.1.0
-starlette==0.14.2
-python-dotenv==0.19.1
-gunicorn==20.1.0
+fastapi>=0.115.0
+sqlalchemy>=2.0.35
+mysql-connector-python>=8.0.33
+pandas>=2.0.0
+numpy>=1.26.0
+scikit-learn>=1.3.0
+pytest>=7.4.0
+redis>=5.0.0
+python-jose>=3.3.0
+passlib>=1.7.4
+python-dotenv>=1.0.0
+uvicorn>=0.30.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+httpx>=0.27.0

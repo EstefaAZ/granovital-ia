@@ -244,13 +244,12 @@ class IAService:
                 detail=str(e),
             )
 
-        # Verificar umbral de confianza
+        # BUG-024 FIX: baja confianza != planta sana; retornar "indeterminado"
         if confianza < settings.UMBRAL_CONFIANZA_MINIMA:
-            diagnostico = "sano"
-            confianza   = confianza
+            diagnostico = "indeterminado"
             logger.warning(
                 f"Confianza {confianza:.3f} por debajo del umbral "
-                f"{settings.UMBRAL_CONFIANZA_MINIMA}. Reportando como 'sano'."
+                f"{settings.UMBRAL_CONFIANZA_MINIMA}. Reportando como 'indeterminado'."
             )
 
         recomendacion, urgencia = obtener_recomendacion(tipo, diagnostico)

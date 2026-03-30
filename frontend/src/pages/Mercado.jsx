@@ -415,11 +415,15 @@ export default function Mercado() {
             RF-13 Análisis de precios · RF-14 Análisis de demanda
           </p>
         </div>
-        <button onClick={sincronizar} style={{
-          padding: "0.6rem 1.2rem", borderRadius: "10px",
-          border: "none", background: "#fff",
-          color: C.cafe, fontWeight: 700, cursor: "pointer",
-        }}>
+        {/* BUG-045 FIX: aria-label para accesibilidad */}
+        <button
+          aria-label="Sincronizar ventas propias desde trazabilidad"
+          onClick={sincronizar}
+          style={{
+            padding: "0.6rem 1.2rem", borderRadius: "10px",
+            border: "none", background: "#fff",
+            color: C.cafe, fontWeight: 700, cursor: "pointer",
+          }}>
           🔄 Sincronizar ventas
         </button>
       </div>

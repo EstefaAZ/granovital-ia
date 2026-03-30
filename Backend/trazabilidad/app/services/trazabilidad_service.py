@@ -216,10 +216,13 @@ class TrazabilidadService:
             )
 
     def _generar_codigo_lote(self) -> str:
-        """Genera codigo legible unico: GV-AAAA-NNNN."""
+        """Genera codigo legible unico: GV-AAAA-NNNN.
+        BUG-029 FIX: SELECT ... FOR UPDATE serializa la lectura del contador
+        evitando race condition cuando 2 requests llegan simultáneamente.
+        """
         anio   = datetime.now().year
         ultimo = self.db.execute(
-            text("SELECT COUNT(*) as cnt FROM tbl_trazabilidad_lote")
+            text("SELECT COUNT(*) as cnt FROM tbl_trazabilidad_lote FOR UPDATE")
         ).fetchone()
         num = (ultimo.cnt + 1) if ultimo else 1
         return f"GV-{anio}-{num:04d}"

@@ -23,7 +23,7 @@ def get_current_user_payload(
     try:
         return jwt.decode(
             token,
-            settings.SECRET_KEY,
+            settings.SECRET_KEY.get_secret_value(),
             algorithms=[settings.ALGORITHM],
         )
     except JWTError:

@@ -24,6 +24,10 @@ from app.schemas.auth import LoginRequest, LoginResponse, UsuarioLoginResponse, 
 
 logger = logging.getLogger(__name__)
 
+# BUG-052 FIX: hash dummy pre-calculado para ejecutar siempre bcrypt
+# y evitar timing attack que revele si un email existe o no.
+DUMMY_HASH = "$2b$12$dummyhashfortimingatk.usedwhenusernotfound.x.x.x.x."
+
 
 class AuthService:
     """
@@ -89,6 +93,10 @@ class AuthService:
             password_valida = verify_password(
                 credentials.contrasena, usuario.contrasena
             )
+        else:
+            # BUG-052 FIX: ejecutar bcrypt aunque el usuario no exista
+            # para que la respuesta tarde igual y no revele emails válidos
+            verify_password(credentials.contrasena, DUMMY_HASH)
 
         # Paso 2 — Estado de cuenta (solo si el usuario existe)
         if usuario:

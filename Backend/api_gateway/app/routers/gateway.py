@@ -57,9 +57,10 @@ async def proxy_reportes(request: Request, ruta: str) -> Response:
 
 # ── Auditoría ─────────────────────────────────────────────────
 @router.api_route("/api/v1/auditoria", methods=["GET","POST","OPTIONS"], tags=["Reportes"])
-async def proxy_auditoria_raiz_get(request: Request) -> Response:
-    return await reenviar_peticion(request, _ruta(settings.URL_REPORTES, "/api/v1/auditoria"))
+async def proxy_auditoria_raiz(request: Request) -> Response:
+    return await reenviar_peticion(request, _ruta(settings.URL_REPORTES, "/api/v1/auditoria/"))
 
 @router.api_route("/api/v1/auditoria/{ruta:path}", methods=["GET","POST","OPTIONS"], tags=["Reportes"])
+# BUG-013 FIX: la variable ruta se ignoraba, siempre apuntaba al mismo endpoint
 async def proxy_auditoria(request: Request, ruta: str) -> Response:
     return await reenviar_peticion(request, _ruta(settings.URL_REPORTES, f"/api/v1/auditoria/{ruta}"))

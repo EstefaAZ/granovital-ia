@@ -51,6 +51,8 @@ def calcular_hash_lote(
     Retorna:
       str  Hash hexadecimal SHA-256 de 64 caracteres
     """
+    # BUG-054 FIX: fecha_cosecha debe llegar normalizada con strftime("%Y-%m-%dT%H:%M:%S")
+    # para garantizar el mismo hash en todos los entornos (con/sin microsegundos/timezone)
     contenido = (
         f"{codigo_lote}|{variedad_cafe}|{fecha_cosecha}|"
         f"{kg_cereza}|{clasificacion}|{humedad}|"
@@ -82,7 +84,8 @@ def verificar_hash_lote(
       integro = verificar_hash_lote(
           lote.hash_integridad,
           lote.codigo_lote, lote.variedad_cafe,
-          str(lote.fecha_cosecha), float(lote.kg_cereza_cosechados),
+          # BUG-054 FIX: normalizar fecha a ISO 8601 para reproducibilidad
+          lote.fecha_cosecha.strftime("%Y-%m-%dT%H:%M:%S"), float(lote.kg_cereza_cosechados),
           lote.clasificacion_calidad, lote.humedad_final_pct,
           lote.numero_defectos, settings.HASH_INTEGRIDAD_SAL
       )

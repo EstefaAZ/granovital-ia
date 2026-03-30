@@ -5,6 +5,7 @@
 # =============================================================
 
 from pydantic_settings import BaseSettings
+from pydantic import SecretStr, model_validator
 from functools import lru_cache
 
 
@@ -36,7 +37,8 @@ class Settings(BaseSettings):
         )
 
     # ── JWT ───────────────────────────────────────────────────
-    JWT_SECRET_KEY: str = "S4nt1yEs73f4n14u4sug4Ar1d1l4Zu1l3t4gR4c1aN0L0r3NZ4T0b14SB4Tm4nC4"
+    # BUG-002 FIX: SecretStr + sin valor por defecto. DEBE estar en .env.
+    JWT_SECRET_KEY: SecretStr
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -52,6 +54,16 @@ class Settings(BaseSettings):
         if self.REDIS_PASSWORD:
             return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
+    @model_validator(mode="after")
+    def _validar_secretos(self) -> "Settings":
+        key = self.JWT_SECRET_KEY.get_secret_value()
+        if not key or key in ("cambia-esta-clave-en-produccion",):
+            raise ValueError(
+                "JWT_SECRET_KEY no está configurada. "
+                "Define la variable en el archivo .env del módulo login."
+            )
+        return self
 
     # ── Seguridad de cuenta ───────────────────────────────────
     MAX_LOGIN_ATTEMPTS: int = 5

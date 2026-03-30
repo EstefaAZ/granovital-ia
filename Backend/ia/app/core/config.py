@@ -13,6 +13,7 @@
 # ==============================================================
 
 from pydantic_settings import BaseSettings
+from pydantic import SecretStr, model_validator
 
 
 class Settings(BaseSettings):
@@ -20,11 +21,11 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG:       bool = False
 
-    DATABASE_URL: str = (
-        "mysql+pymysql://granovital:granovital123@localhost:3306/granovital_db"
-    )
+    # BUG-003 FIX: credenciales en .env, nunca en código fuente
+    DATABASE_URL: str
 
-    SECRET_KEY: str = "cambia-esta-clave-en-produccion"
+    # BUG-001 FIX: sin valor por defecto — DEBE definirse en .env
+    SECRET_KEY: SecretStr
     ALGORITHM:  str = "HS256"
 
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"

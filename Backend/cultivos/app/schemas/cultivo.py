@@ -69,6 +69,19 @@ class CultivoUpdate(BaseModel):
     observaciones:  Optional[str] = None
     estado:         Optional[str] = None
 
+    @field_validator("nombre_cultivo")
+    @classmethod
+    def nombre_valido(cls, v: Optional[str]) -> Optional[str]:
+        # BUG-046 FIX: misma validacion que CultivoCreate para consistencia
+        if v is None:
+            return v
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("El nombre del cultivo debe tener al menos 3 caracteres")
+        if len(v) > 120:
+            raise ValueError("El nombre del cultivo no puede superar 120 caracteres")
+        return v
+
     @field_validator("estado")
     @classmethod
     def estado_permitido(cls, v: Optional[str]) -> Optional[str]:

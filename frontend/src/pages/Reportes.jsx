@@ -150,7 +150,14 @@ function TablaReportes({ reportes, onActualizar }) {
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       a.href     = url;
-      a.download = r.nombre_archivo || `reporte_${r.id_reporte}.pdf`;
+      // BUG-045 FIX: advertir si el reporte es JSON (modo degradado sin reportlab)
+      const nombreArchivo = r.nombre_archivo || `reporte_${r.id_reporte}.pdf`;
+      if (nombreArchivo.endsWith(".json")) {
+        alert("⚠️ Advertencia: reportlab no está instalado en el servidor.\n" +
+              "El reporte se descargará como JSON en lugar de PDF.\n" +
+              "Instala reportlab en el módulo de reportes: pip install reportlab");
+      }
+      a.download = nombreArchivo;
       a.click();
       URL.revokeObjectURL(url);
       onActualizar && onActualizar();
@@ -225,6 +232,7 @@ function TablaReportes({ reportes, onActualizar }) {
                 )}
                 {r.estado === "error" && (
                   <button
+                    aria-label="Reintentar generacion de reporte"
                     onClick={() => reintentar(r.id_reporte)}
                     style={{
                       padding: "0.3rem 0.7rem", borderRadius: "6px",
@@ -307,7 +315,7 @@ function PanelAuditoria() {
             padding: "0.3rem 0.8rem", borderRadius: "6px", border: "none",
             background: C.cafe, color: "#fff", fontSize: "0.78rem",
             fontWeight: 700, cursor: "pointer",
-          }}>🔄 Actualizar</button>
+          }aria-label="Actualizar lista de reportes">🔄 Actualizar</button>
         </div>
 
         {carg && <p style={{ padding: "1rem", color: "#9a7a5a" }}>Cargando...</p>}
@@ -498,7 +506,7 @@ export default function Reportes() {
                 padding: "0.3rem 0.8rem", borderRadius: "6px", border: "none",
                 background: C.cafe, color: "#fff", fontSize: "0.78rem",
                 fontWeight: 700, cursor: "pointer",
-              }}>🔄 Actualizar</button>
+              }aria-label="Actualizar lista de reportes">🔄 Actualizar</button>
             </div>
             <TablaReportes reportes={reportes} onActualizar={cargarDatos} />
           </div>

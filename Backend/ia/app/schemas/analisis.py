@@ -37,6 +37,8 @@ class AnalisisImagenResponse(BaseModel):
     nombre_imagen:     Optional[str] = None
     fecha_analisis:    datetime
     id_cultivo:        int
+    # BUG-014 FIX: campo para advertir al frontend cuando no hay modelo real
+    modo_simulado:     bool = False
     model_config = ConfigDict(from_attributes=True)
 
 

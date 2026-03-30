@@ -10,6 +10,7 @@
 # ==============================================================
 
 from pydantic_settings import BaseSettings
+from pydantic import SecretStr, model_validator
 
 
 class Settings(BaseSettings):
@@ -18,12 +19,12 @@ class Settings(BaseSettings):
     DEBUG:       bool = False
 
     # Base de datos compartida con todos los modulos
-    DATABASE_URL: str = (
-        "mysql+pymysql://granovital:granovital123@localhost:3306/granovital_db"
-    )
+    # BUG-003 FIX: credenciales en .env, nunca en código fuente
+    DATABASE_URL: str
 
     # JWT - validado desde el token emitido por Modulo 01
-    SECRET_KEY: str = "cambia-esta-clave-en-produccion"
+    # BUG-001 FIX: sin valor por defecto — DEBE definirse en .env
+    SECRET_KEY: SecretStr
     ALGORITHM:  str = "HS256"
 
     # CORS

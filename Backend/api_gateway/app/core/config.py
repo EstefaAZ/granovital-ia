@@ -3,6 +3,7 @@
 # =============================================================
 
 from pydantic_settings import BaseSettings
+from pydantic import SecretStr, model_validator
 from functools import lru_cache
 
 
@@ -16,8 +17,20 @@ class Settings(BaseSettings):
 
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
-    JWT_SECRET_KEY: str = "S4nt1yEs73f4n14u4sug4Ar1d1l4Zu1l3t4gR4c1aN0L0r3NZ4T0b14SB4Tm4nC4"
+    # BUG-002 FIX: SecretStr evita que la clave aparezca en logs/repr.
+    # Sin valor por defecto — DEBE configurarse en .env.
+    JWT_SECRET_KEY: SecretStr
     JWT_ALGORITHM: str = "HS256"
+
+    @model_validator(mode="after")
+    def _validar_secretos(self) -> "Settings":
+        key = self.JWT_SECRET_KEY.get_secret_value()
+        if not key or key in ("cambia-esta-clave-en-produccion",):
+            raise ValueError(
+                "JWT_SECRET_KEY no está configurada. "
+                "Define la variable en el archivo .env del api_gateway."
+            )
+        return self
 
     URL_AUTH:         str = "http://localhost:8001"
     URL_CULTIVOS:     str = "http://localhost:8002"

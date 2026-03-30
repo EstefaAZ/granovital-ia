@@ -95,7 +95,8 @@ class MonitoreoAmbiental(Base):
     )
     id_cultivo = Column(
     Integer,
-    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE", use_alter=True),
+    # BUG-038 FIX: use_alter=True innecesario sin referencia circular real
+    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),
     nullable=False,
     )
 
@@ -178,7 +179,8 @@ class MonitoreoSuelo(Base):
     )
     id_cultivo = Column(
     Integer,
-    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE", use_alter=True),
+    # BUG-038 FIX: use_alter=True innecesario sin referencia circular real
+    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),
     nullable=False,
     )
 

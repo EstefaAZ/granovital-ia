@@ -24,7 +24,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, status
@@ -80,7 +80,7 @@ class ReportesService:
         """
         nombre_auto = solicitud.nombre or (
             f"Reporte {solicitud.tipo_reporte.title()} "
-            f"{datetime.utcnow().strftime('%d/%m/%Y %H:%M')}"
+            f"{datetime.now(timezone.utc)  # BUG-021 FIX.strftime('%d/%m/%Y %H:%M')}"
         )
         params_json = json.dumps({
             "fecha_inicio": solicitud.fecha_inicio.isoformat() if solicitud.fecha_inicio else None,
@@ -129,7 +129,7 @@ class ReportesService:
             reporte.nombre_archivo = resultado["nombre_archivo"]
             reporte.tamano_bytes   = resultado["tamano_bytes"]
             reporte.num_registros  = resultado["num_registros"]
-            reporte.fecha_generado = datetime.utcnow()
+            reporte.fecha_generado = datetime.now(timezone.utc)  # BUG-021 FIX
             self.db.commit()
 
             logger.info(
@@ -204,7 +204,7 @@ class ReportesService:
         # Transición a descargado
         if r.estado == "disponible":
             r.estado         = "descargado"
-            r.fecha_descarga = datetime.utcnow()
+            r.fecha_descarga = datetime.now(timezone.utc)  # BUG-021 FIX
             self.db.commit()
 
         self._registrar_auditoria_interna(
@@ -341,7 +341,7 @@ class ReportesService:
         Consulta todas las tablas del sistema via SQL directo.
         Si alguna tabla no existe (módulo no desplegado), retorna 0.
         """
-        ahora      = datetime.utcnow()
+        ahora      = datetime.now(timezone.utc)  # BUG-021 FIX
         hace_7dias = ahora - timedelta(days=7)
         hoy_inicio = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -435,7 +435,7 @@ class ReportesService:
             {"indicador": "Reportes generados",       "valor": resumen.reportes_generados},
         ]
         return datos, ["indicador", "valor"], ["Indicador", "Valor"], {
-            "Fecha generación": datetime.utcnow().strftime("%d/%m/%Y %H:%M"),
+            "Fecha generación": datetime.now(timezone.utc)  # BUG-021 FIX.strftime("%d/%m/%Y %H:%M"),
             "Sistema":          settings.NOMBRE_ORGANIZACION,
         }
 
