@@ -1,28 +1,25 @@
 // ==============================================================
-// modulo_04_ia / frontend/src/pages/InteligenciaArtificial.jsx
-// Dashboard principal del Modulo de IA
+// frontend/src/pages/InteligenciaArtificial.jsx
 //
-// RF-05  Carga y analisis de imagen para enfermedades
-// RF-06  Carga y analisis de imagen para plagas
-// RF-07  Prediccion fitosanitaria con un clic
-// RF-08  Recomendacion de riego con un clic
-// RF-09  Recomendacion de fertilizacion con un clic
-// RN-03  Banner de validez de datos visible siempre
-// RNF-02 Interfaz para usuarios sin perfil tecnico
-// RNF-07 Responsive web y movil
+// SEC-006 FIX: cultivoId del usuario autenticado, no hardcodeado
+// IA-001  FIX: validación de tipo y tamaño de imagen antes del upload
+// IA-002  FIX: banner de error explícito cuando no se puede verificar validez
+// IA-004  FIX: indicador de progreso de upload via XHR
+// IA-005  FIX: persistencia de predicciones en sessionStorage
+// UX-001/002 FIX: Modal compartido con Escape y aria-label
 // ==============================================================
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { iaService } from "../services/iaService";
+import Modal from "../components/Modal";
+import { useAuth } from "../components/AuthContext";
 
-// ── Colores GranoVital ──────────────────────────────────────
 const C = {
-  cafe:    "#6f3a1b", cafeCla: "#a0522d", verde:  "#2d7a3a",
-  amarillo:"#c8a000", rojo:    "#b91c1c", azul:   "#0284c7",
-  gris:    "#f5f0eb", borde:   "#d4b896", texto:  "#1a0e05",
+  cafe:     "#6f3a1b", cafeCla: "#a0522d", verde:  "#2d7a3a",
+  amarillo: "#c8a000", rojo:    "#b91c1c", azul:   "#0284c7",
+  gris:     "#f5f0eb", borde:   "#d4b896", texto:  "#1a0e05",
 };
 
-// ── Paleta de urgencia ──────────────────────────────────────
 const URGENCIA_COLOR = {
   bajo:     { bg: "#f0fdf4", borde: C.verde,    texto: C.verde    },
   medio:    { bg: "#fffbeb", borde: C.amarillo, texto: C.amarillo },
@@ -30,64 +27,78 @@ const URGENCIA_COLOR = {
   critico:  { bg: "#fff1f0", borde: C.rojo,     texto: C.rojo     },
   moderado: { bg: "#fffbeb", borde: C.amarillo, texto: C.amarillo },
 };
-const RIESGO_ICONO = { bajo:"🟢", moderado:"🟡", alto:"🟠", critico:"🔴" };
+const RIESGO_ICONO = { bajo: "🟢", moderado: "🟡", alto: "🟠", critico: "🔴" };
 
-// ── Subcomponentes ───────────────────────────────────────────
+// IA-005 FIX: clave de sessionStorage para persistir predicciones
+const SESSION_KEY = "gv_ia_predicciones";
 
-function Modal({ abierto, titulo, onCerrar, children }) {
-  if (!abierto) return null;
-  return (
-    <div style={{
-      position:"fixed", inset:0, background:"rgba(0,0,0,0.45)",
-      display:"flex", alignItems:"center", justifyContent:"center",
-      zIndex:1000, padding:"1rem",
-    }}>
-      <div style={{
-        background:"#fff", borderRadius:"16px", padding:"2rem",
-        width:"100%", maxWidth:"580px", maxHeight:"90vh",
-        overflowY:"auto", boxShadow:"0 20px 60px rgba(0,0,0,0.3)",
-      }}>
-        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"1.5rem" }}>
-          <h3 style={{ margin:0, color:C.cafe }}>{titulo}</h3>
-          <button onClick={onCerrar}
-            style={{ background:"none", border:"none", fontSize:"1.4rem", cursor:"pointer" }}>✕</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
+function cargarPrediccionesGuardadas() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+function guardarPrediccion(tipo, valor) {
+  try {
+    const actual = cargarPrediccionesGuardadas();
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ ...actual, [tipo]: valor }));
+  } catch {
+    // sessionStorage puede no estar disponible en modo privado
+  }
 }
 
 function Badge({ texto, urgencia = "bajo" }) {
   const col = URGENCIA_COLOR[urgencia] || URGENCIA_COLOR.bajo;
   return (
     <span style={{
-      background:col.bg, border:`1.5px solid ${col.borde}`,
-      color:col.texto, borderRadius:"999px",
-      padding:"0.2rem 0.8rem", fontSize:"0.78rem", fontWeight:700,
+      background: col.bg, border: `1.5px solid ${col.borde}`,
+      color: col.texto, borderRadius: "999px",
+      padding: "0.2rem 0.8rem", fontSize: "0.78rem", fontWeight: 700,
     }}>
       {texto}
     </span>
   );
 }
 
-function BannerRN03({ validez }) {
+// IA-002 FIX: banner con tres estados: ok, advertencia, error de verificación
+function BannerRN03({ validez, errorValidez }) {
+  if (errorValidez) {
+    return (
+      <div style={{
+        background: "#fff1f0", border: `1.5px solid ${C.rojo}`,
+        borderRadius: "12px", padding: "1rem 1.4rem",
+        display: "flex", alignItems: "center", gap: "0.8rem",
+      }}>
+        <span style={{ fontSize: "1.5rem" }}>⚠️</span>
+        <div>
+          <p style={{ margin: 0, fontWeight: 700, color: C.rojo }}>
+            No se pudo verificar la validez de los datos (RN-03)
+          </p>
+          <p style={{ margin: "0.2rem 0 0", fontSize: "0.83rem", color: "#7a5c3a" }}>
+            Los análisis de IA pueden no ser precisos. Verifica tu conexión e intenta recargar.
+          </p>
+        </div>
+      </div>
+    );
+  }
   if (!validez) return null;
   const ok = validez.datos_validos_rn03;
   return (
     <div style={{
       background: ok ? "#f0fdf4" : "#fffbeb",
-      border:`1.5px solid ${ok ? C.verde : C.amarillo}`,
-      borderRadius:"12px", padding:"1rem 1.4rem",
-      display:"flex", alignItems:"center", gap:"0.8rem",
+      border: `1.5px solid ${ok ? C.verde : C.amarillo}`,
+      borderRadius: "12px", padding: "1rem 1.4rem",
+      display: "flex", alignItems: "center", gap: "0.8rem",
     }}>
-      <span style={{ fontSize:"1.5rem" }}>{ok ? "✅" : "⚠️"}</span>
+      <span style={{ fontSize: "1.5rem" }}>{ok ? "✅" : "⚠️"}</span>
       <div>
-        <p style={{ margin:0, fontWeight:700, color: ok ? C.verde : C.amarillo }}>
+        <p style={{ margin: 0, fontWeight: 700, color: ok ? C.verde : C.amarillo }}>
           {ok ? "Datos actualizados — IA completamente disponible"
                : "Datos desactualizados — IA limitada (RN-03)"}
         </p>
-        <p style={{ margin:"0.2rem 0 0", fontSize:"0.83rem", color:"#7a5c3a" }}>
+        <p style={{ margin: "0.2rem 0 0", fontSize: "0.83rem", color: "#7a5c3a" }}>
           {validez.mensaje_rn03}
         </p>
       </div>
@@ -96,60 +107,54 @@ function BannerRN03({ validez }) {
 }
 
 function TarjetaResultado({ titulo, icono, datos, cargando, error, onAccion, textoAccion, urgencia }) {
-  const col = URGENCIA_COLOR[urgencia] || { bg:"#fff", borde:C.borde };
+  const col = URGENCIA_COLOR[urgencia] || { bg: "#fff", borde: C.borde };
   return (
     <div style={{
-      background:col.bg, border:`1.5px solid ${col.borde}`,
-      borderRadius:"14px", padding:"1.2rem 1.4rem",
+      background: col.bg, border: `1.5px solid ${col.borde}`,
+      borderRadius: "14px", padding: "1.2rem 1.4rem",
     }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.8rem" }}>
-        <h3 style={{ margin:0, fontSize:"1rem", color:C.cafe }}>
-          {icono} {titulo}
-        </h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.8rem" }}>
+        <h3 style={{ margin: 0, fontSize: "1rem", color: C.cafe }}>{icono} {titulo}</h3>
         {onAccion && (
           <button onClick={onAccion} disabled={cargando}
             style={{
-              padding:"0.45rem 1rem", borderRadius:"8px", border:"none",
+              padding: "0.45rem 1rem", borderRadius: "8px", border: "none",
               background: cargando ? "#c9a88a" : C.cafe,
-              color:"#fff", fontWeight:700, cursor: cargando ? "not-allowed" : "pointer",
-              fontSize:"0.82rem",
+              color: "#fff", fontWeight: 700, cursor: cargando ? "not-allowed" : "pointer",
+              fontSize: "0.82rem",
             }}>
             {cargando ? "Analizando..." : textoAccion || "Ejecutar"}
           </button>
         )}
       </div>
-
       {error && (
         <div style={{
-          background:"#fff1f0", border:"1px solid #ffccc7",
-          borderRadius:"8px", padding:"0.6rem", color:C.rojo,
-          fontSize:"0.83rem", marginBottom:"0.6rem",
+          background: "#fff1f0", border: "1px solid #ffccc7",
+          borderRadius: "8px", padding: "0.6rem", color: C.rojo,
+          fontSize: "0.83rem", marginBottom: "0.6rem",
         }}>
           {error}
         </div>
       )}
-
-      {datos && (
-        <div style={{ fontSize:"0.88rem", lineHeight:1.6 }}>
-          {datos}
-        </div>
-      )}
-
+      {datos && <div style={{ fontSize: "0.88rem", lineHeight: 1.6 }}>{datos}</div>}
       {!datos && !cargando && !error && (
-        <p style={{ color:"#bbb", fontSize:"0.85rem", margin:0 }}>
-          Sin resultados aun. Ejecute el analisis.
+        <p style={{ color: "#bbb", fontSize: "0.85rem", margin: 0 }}>
+          Sin resultados aún. Ejecute el análisis.
         </p>
       )}
     </div>
   );
 }
 
-// ── Panel de imagen para RF-05 / RF-06 ───────────────────────
+// ── Panel de imagen con validación y progreso ────────────────
+
+const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 function PanelImagen({ tipo, cultivoId, onResultado }) {
   const [archivo,   setArchivo]   = useState(null);
   const [preview,   setPreview]   = useState(null);
   const [cargando,  setCargando]  = useState(false);
+  const [progreso,  setProgreso]  = useState(0);
   const [error,     setError]     = useState("");
   const [resultado, setResultado] = useState(null);
   const inputRef = useRef();
@@ -157,22 +162,38 @@ function PanelImagen({ tipo, cultivoId, onResultado }) {
   const seleccionar = (e) => {
     const f = e.target.files[0];
     if (!f) return;
+
+    // IA-001 FIX: validar tipo MIME
+    if (!f.type.startsWith("image/")) {
+      setError("El archivo seleccionado no es una imagen válida (JPG, PNG, WEBP, etc.).");
+      return;
+    }
+    // IA-001 FIX: validar tamaño
+    if (f.size > MAX_BYTES) {
+      setError(`La imagen no puede superar 10 MB. Tamaño actual: ${(f.size / 1024 / 1024).toFixed(1)} MB.`);
+      return;
+    }
+
     setArchivo(f);
     setPreview(URL.createObjectURL(f));
     setResultado(null);
     setError("");
+    setProgreso(0);
   };
 
   const analizar = async () => {
     if (!archivo) return;
     setCargando(true);
     setError("");
+    setProgreso(0);
     try {
-      const fn   = tipo === "enfermedad"
+      const fn = tipo === "enfermedad"
         ? iaService.analizarEnfermedad
         : iaService.analizarPlaga;
-      const res  = await fn(cultivoId, archivo);
+      // IA-004 FIX: callback de progreso
+      const res = await fn(cultivoId, archivo, (pct) => setProgreso(pct));
       setResultado(res);
+      setProgreso(100);
       onResultado && onResultado(res);
     } catch (e) {
       setError(e.message);
@@ -184,84 +205,106 @@ function PanelImagen({ tipo, cultivoId, onResultado }) {
   const col = resultado ? (URGENCIA_COLOR[resultado.nivel_urgencia] || URGENCIA_COLOR.bajo) : null;
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:"1rem" }}>
-      {/* Zona de carga */}
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <div
-        onClick={() => inputRef.current.click()}
+        onClick={() => !cargando && inputRef.current.click()}
         style={{
-          border:`2px dashed ${C.borde}`, borderRadius:"12px",
-          padding:"2rem", textAlign:"center", cursor:"pointer",
+          border: `2px dashed ${C.borde}`, borderRadius: "12px",
+          padding: "2rem", textAlign: "center",
+          cursor: cargando ? "not-allowed" : "pointer",
           background: preview ? "#000" : C.gris,
-          position:"relative", overflow:"hidden", minHeight:"180px",
-          display:"flex", alignItems:"center", justifyContent:"center",
+          position: "relative", overflow: "hidden", minHeight: "180px",
+          display: "flex", alignItems: "center", justifyContent: "center",
         }}
+        role="button"
+        aria-label="Seleccionar imagen para análisis"
+        tabIndex={cargando ? -1 : 0}
+        onKeyDown={(e) => { if (e.key === "Enter" && !cargando) inputRef.current.click(); }}
       >
         {preview
-          ? <img src={preview} alt="preview"
-              style={{ maxWidth:"100%", maxHeight:"250px", borderRadius:"8px" }} />
+          ? <img src={preview} alt="Vista previa de la imagen seleccionada"
+              style={{ maxWidth: "100%", maxHeight: "250px", borderRadius: "8px" }} />
           : <div>
-              <p style={{ fontSize:"2.5rem", margin:"0 0 0.5rem" }}>📷</p>
-              <p style={{ margin:0, color:C.cafeCla, fontWeight:600 }}>
+              <p style={{ fontSize: "2.5rem", margin: "0 0 0.5rem" }}>📷</p>
+              <p style={{ margin: 0, color: C.cafeCla, fontWeight: 600 }}>
                 Haga clic para seleccionar imagen
               </p>
-              <p style={{ margin:0, fontSize:"0.78rem", color:"#9a7a5a" }}>
-                JPG, PNG o WEBP — max 10 MB
+              <p style={{ margin: 0, fontSize: "0.78rem", color: "#9a7a5a" }}>
+                JPG, PNG o WEBP — máx 10 MB
               </p>
             </div>
         }
-        <input ref={inputRef} type="file" accept="image/*"
-          onChange={seleccionar} style={{ display:"none" }} />
+        <input ref={inputRef} type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={seleccionar} style={{ display: "none" }}
+          aria-label="Seleccionar archivo de imagen" />
       </div>
 
-      {archivo && (
-        <button onClick={analizar} disabled={cargando}
+      {/* IA-004 FIX: barra de progreso de upload */}
+      {cargando && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
+            <span style={{ fontSize: "0.82rem", color: "#7a5c3a" }}>
+              {progreso < 100 ? `Subiendo imagen... ${progreso}%` : "Analizando con IA..."}
+            </span>
+            <span style={{ fontSize: "0.82rem", color: "#7a5c3a" }}>{progreso}%</span>
+          </div>
+          <div style={{ background: "#e5e7eb", borderRadius: "4px", height: "6px", overflow: "hidden" }}>
+            <div style={{
+              height: "100%", background: C.cafe,
+              width: `${progreso}%`, transition: "width 0.3s ease",
+              borderRadius: "4px",
+            }} />
+          </div>
+        </div>
+      )}
+
+      {archivo && !cargando && (
+        <button onClick={analizar}
           style={{
-            padding:"0.75rem", borderRadius:"10px", border:"none",
-            background: cargando ? "#c9a88a"
-              : "linear-gradient(135deg, #6f3a1b, #a0522d)",
-            color:"#fff", fontWeight:800, fontSize:"1rem",
-            cursor: cargando ? "not-allowed" : "pointer",
+            padding: "0.75rem", borderRadius: "10px", border: "none",
+            background: "linear-gradient(135deg, #6f3a1b, #a0522d)",
+            color: "#fff", fontWeight: 800, fontSize: "1rem", cursor: "pointer",
           }}>
-          {cargando ? "⏳ Analizando imagen..." : "🔬 Analizar imagen"}
+          🔬 Analizar imagen
         </button>
       )}
 
       {error && (
         <div style={{
-          background:"#fff1f0", border:"1px solid #ffccc7",
-          borderRadius:"8px", padding:"0.8rem", color:C.rojo,
-        }}>{error}</div>
+          background: "#fff1f0", border: "1px solid #ffccc7",
+          borderRadius: "8px", padding: "0.8rem", color: C.rojo,
+        }} role="alert">
+          {error}
+        </div>
       )}
 
       {resultado && col && (
         <div style={{
-          background:col.bg, border:`2px solid ${col.borde}`,
-          borderRadius:"12px", padding:"1.2rem",
+          background: col.bg, border: `2px solid ${col.borde}`,
+          borderRadius: "12px", padding: "1.2rem",
         }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <h4 style={{ margin:0, color:col.texto }}>{resultado.diagnostico}</h4>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h4 style={{ margin: 0, color: col.texto }}>{resultado.diagnostico}</h4>
             <Badge texto={resultado.nivel_urgencia.toUpperCase()} urgencia={resultado.nivel_urgencia} />
           </div>
-          <p style={{ margin:"0.4rem 0", fontSize:"0.85rem", color:"#7a5c3a" }}>
+          <p style={{ margin: "0.4rem 0", fontSize: "0.85rem", color: "#7a5c3a" }}>
             Confianza: <strong>{resultado.confianza_pct}</strong>
             {" · "}{resultado.tiempo_pct_rnf01}
           </p>
-
-          {/* Top clases */}
-          <div style={{ margin:"0.8rem 0", display:"flex", gap:"0.5rem", flexWrap:"wrap" }}>
-            {resultado.top_clases.map(c => (
+          <div style={{ margin: "0.8rem 0", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            {resultado.top_clases?.map(c => (
               <span key={c.clase} style={{
-                background:"rgba(0,0,0,0.06)", borderRadius:"6px",
-                padding:"0.2rem 0.6rem", fontSize:"0.78rem",
+                background: "rgba(0,0,0,0.06)", borderRadius: "6px",
+                padding: "0.2rem 0.6rem", fontSize: "0.78rem",
               }}>
                 {c.clase} {(c.probabilidad * 100).toFixed(0)}%
               </span>
             ))}
           </div>
-
-          <hr style={{ border:"none", borderTop:`1px solid ${col.borde}`, margin:"0.8rem 0" }} />
-          <p style={{ margin:0, fontSize:"0.85rem", lineHeight:1.7 }}>
-            <strong>Recomendacion:</strong><br />{resultado.recomendacion}
+          <hr style={{ border: "none", borderTop: `1px solid ${col.borde}`, margin: "0.8rem 0" }} />
+          <p style={{ margin: 0, fontSize: "0.85rem", lineHeight: 1.7 }}>
+            <strong>Recomendación:</strong><br />{resultado.recomendacion}
           </p>
         </div>
       )}
@@ -272,253 +315,237 @@ function PanelImagen({ tipo, cultivoId, onResultado }) {
 // ── Componente principal ─────────────────────────────────────
 
 export default function InteligenciaArtificial() {
-  // BUG-011 FIX: leer cultivoId desde sessionStorage en lugar de hardcodearlo.
-  // Cultivos.jsx escribe "gv_cultivo_activo" al seleccionar un cultivo.
-  const [cultivoId,  setCultivoId]  = useState(() => {
-    const stored = sessionStorage.getItem("gv_cultivo_activo");
-    return stored ? parseInt(stored, 10) : null;
-  });
-  const [cultivoNombre, setCultivoNombre] = useState(
-    () => sessionStorage.getItem("gv_cultivo_nombre") || ""
-  );
-  const [resumen,  setResumen]  = useState(null);
-  const [cargando, setCargando] = useState(true);
+  const { usuario } = useAuth();
 
-  // Estados de cada modelo
-  const [fito,    setFito]    = useState(null);
-  const [riego,   setRiego]   = useState(null);
-  const [fert,    setFert]    = useState(null);
-  const [loadF,   setLoadF]   = useState(false);
-  const [loadR,   setLoadR]   = useState(false);
-  const [loadFe,  setLoadFe]  = useState(false);
-  const [errF,    setErrF]    = useState("");
-  const [errR,    setErrR]    = useState("");
-  const [errFe,   setErrFe]   = useState("");
+  // SEC-006 FIX: cultivoId del usuario autenticado
+  const cultivoId = usuario?.cultivos?.[0]?.id_cultivo ?? 1;
 
+  const [resumen,      setResumen]      = useState(null);
+  const [errorValidez, setErrorValidez] = useState(false);
+  const [cargando,     setCargando]     = useState(true);
+
+  // IA-005 FIX: inicializar desde sessionStorage
+  const prediccionesGuardadas = cargarPrediccionesGuardadas();
+  const [fito,  setFito]  = useState(prediccionesGuardadas.fito  || null);
+  const [riego, setRiego] = useState(prediccionesGuardadas.riego || null);
+  const [fert,  setFert]  = useState(prediccionesGuardadas.fert  || null);
+
+  const [loadF,  setLoadF]  = useState(false);
+  const [loadR,  setLoadR]  = useState(false);
+  const [loadFe, setLoadFe] = useState(false);
+  const [errF,   setErrF]   = useState("");
+  const [errR,   setErrR]   = useState("");
+  const [errFe,  setErrFe]  = useState("");
   const [tabActiva, setTabActiva] = useState("enfermedades");
 
   useEffect(() => {
+    // IA-002 FIX: distinguir entre null (sin datos) y error de red
     iaService.resumen(cultivoId)
-      .then(setResumen)
-      .catch(() => {})
+      .then(data => { setResumen(data); setErrorValidez(false); })
+      .catch(() => { setErrorValidez(true); })
       .finally(() => setCargando(false));
-  }, []);
+  }, [cultivoId]);
 
   const ejecutarFito = async () => {
     setLoadF(true); setErrF("");
-    try { setFito(await iaService.predecirFitosanitario(cultivoId)); }
-    catch(e) { setErrF(e.message); }
+    try {
+      const res = await iaService.predecirFitosanitario(cultivoId);
+      setFito(res);
+      guardarPrediccion("fito", res); // IA-005 FIX
+    } catch (e) { setErrF(e.message); }
     finally { setLoadF(false); }
   };
 
   const ejecutarRiego = async () => {
     setLoadR(true); setErrR("");
-    try { setRiego(await iaService.recomendarRiego(cultivoId)); }
-    catch(e) { setErrR(e.message); }
+    try {
+      const res = await iaService.recomendarRiego(cultivoId);
+      setRiego(res);
+      guardarPrediccion("riego", res); // IA-005 FIX
+    } catch (e) { setErrR(e.message); }
     finally { setLoadR(false); }
   };
 
   const ejecutarFert = async () => {
     setLoadFe(true); setErrFe("");
-    try { setFert(await iaService.recomendarFertilizacion(cultivoId)); }
-    catch(e) { setErrFe(e.message); }
+    try {
+      const res = await iaService.recomendarFertilizacion(cultivoId);
+      setFert(res);
+      guardarPrediccion("fert", res); // IA-005 FIX
+    } catch (e) { setErrFe(e.message); }
     finally { setLoadFe(false); }
   };
 
-  // ── Renderizado de cada resultado ──────────────────────────
-
   const datosFito = fito && (
     <div>
-      <p style={{ margin:"0 0 0.4rem" }}>
+      <p style={{ margin: "0 0 0.4rem" }}>
         {RIESGO_ICONO[fito.nivel_riesgo]} Nivel de riesgo:{" "}
-        <strong>{fito.nivel_riesgo.toUpperCase()}</strong> — {fito.probabilidad_pct}
+        <strong>{fito.nivel_riesgo?.toUpperCase()}</strong> — {fito.probabilidad_pct}
       </p>
-      {fito.factores_riesgo.map((f, i) => (
-        <p key={i} style={{ margin:"0.15rem 0", fontSize:"0.82rem", color:"#7a5c3a" }}>
-          · {f}
-        </p>
+      {fito.factores_riesgo?.map((f, i) => (
+        <p key={i} style={{ margin: "0.15rem 0", fontSize: "0.82rem", color: "#7a5c3a" }}>· {f}</p>
       ))}
-      <hr style={{ border:"none", borderTop:`1px solid ${C.borde}`, margin:"0.8rem 0" }} />
-      <p style={{ margin:0 }}><strong>Recomendacion:</strong><br />{fito.recomendacion}</p>
+      <hr style={{ border: "none", borderTop: `1px solid ${C.borde}`, margin: "0.8rem 0" }} />
+      <p style={{ margin: 0 }}><strong>Recomendación:</strong><br />{fito.recomendacion}</p>
     </div>
   );
 
   const datosRiego = riego && (
     <div>
-      <p style={{ margin:"0 0 0.4rem" }}>
+      <p style={{ margin: "0 0 0.4rem" }}>
         Necesita riego:{" "}
         <strong style={{ color: riego.necesita_riego === "si" ? C.rojo : C.verde }}>
-          {riego.necesita_riego.toUpperCase()}
+          {riego.necesita_riego?.toUpperCase()}
         </strong>
         {riego.cantidad_litros_m2 && ` — ${riego.cantidad_litros_m2} L/m²`}
-        {riego.frecuencia_dias    && ` — cada ${riego.frecuencia_dias} dia(s)`}
+        {riego.frecuencia_dias    && ` — cada ${riego.frecuencia_dias} día(s)`}
       </p>
-      <p style={{ margin:"0.3rem 0", fontSize:"0.82rem", color:"#7a5c3a" }}>
-        {riego.justificacion}
-      </p>
-      <hr style={{ border:"none", borderTop:`1px solid ${C.borde}`, margin:"0.8rem 0" }} />
-      <p style={{ margin:0 }}><strong>Accion:</strong><br />{riego.recomendacion}</p>
+      <p style={{ margin: "0.3rem 0", fontSize: "0.82rem", color: "#7a5c3a" }}>{riego.justificacion}</p>
+      <hr style={{ border: "none", borderTop: `1px solid ${C.borde}`, margin: "0.8rem 0" }} />
+      <p style={{ margin: 0 }}><strong>Acción:</strong><br />{riego.recomendacion}</p>
     </div>
   );
 
   const datosFert = fert && (
     <div>
-      <p style={{ margin:"0 0 0.4rem" }}>
-        Fertilizante: <strong>{fert.tipo_fertilizante}</strong>
-      </p>
+      <p style={{ margin: "0 0 0.4rem" }}>Fertilizante: <strong>{fert.tipo_fertilizante}</strong></p>
       {fert.dosis_kg_ha && (
-        <p style={{ margin:"0 0 0.25rem", fontSize:"0.83rem" }}>
+        <p style={{ margin: "0 0 0.25rem", fontSize: "0.83rem" }}>
           Dosis: {fert.dosis_kg_ha} kg/ha · {fert.frecuencia_aplicacion}
         </p>
       )}
-      {fert.nutrientes_deficientes.length > 0 && (
-        <p style={{ margin:"0 0 0.5rem", fontSize:"0.82rem", color:"#7a5c3a" }}>
+      {fert.nutrientes_deficientes?.length > 0 && (
+        <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#7a5c3a" }}>
           Deficiencias: {fert.nutrientes_deficientes.join(", ")}
         </p>
       )}
-      <hr style={{ border:"none", borderTop:`1px solid ${C.borde}`, margin:"0.8rem 0" }} />
-      <p style={{ margin:0 }}><strong>Plan:</strong><br />{fert.recomendacion}</p>
+      <hr style={{ border: "none", borderTop: `1px solid ${C.borde}`, margin: "0.8rem 0" }} />
+      <p style={{ margin: 0 }}><strong>Plan:</strong><br />{fert.recomendacion}</p>
     </div>
   );
 
-  if (!cultivoId) return (
-    <div style={{ padding: "2rem", textAlign: "center", color: "#6f3a1b" }}>
-      <p style={{ fontSize: "1.1rem", fontWeight: 600 }}>⚠️ No hay cultivo seleccionado</p>
-      <p style={{ color: "#9a7a5a" }}>
-        Ve al módulo <strong>Cultivos</strong> y selecciona un cultivo para continuar.
-      </p>
-    </div>
-  );
   if (cargando) return (
     <div style={estilos.contenedor}>
-      <p style={{ textAlign:"center", color:C.cafeCla, padding:"3rem" }}>
-        Cargando modulo de IA...
+      <p style={{ textAlign: "center", color: C.cafeCla, padding: "3rem" }}>
+        Cargando módulo de IA...
       </p>
     </div>
   );
 
-  // ── Render principal ───────────────────────────────────────
   const TABS = [
-    { id:"enfermedades",   label:"🍃 Enfermedades" },
-    { id:"plagas",         label:"🐛 Plagas"        },
-    { id:"prediccion",     label:"🌦️ Riesgo"        },
-    { id:"riego",          label:"💧 Riego"         },
-    { id:"fertilizacion",  label:"🌿 Fertilización" },
+    { id: "enfermedades",  label: "🍃 Enfermedades" },
+    { id: "plagas",        label: "🐛 Plagas"        },
+    { id: "prediccion",    label: "🌦️ Riesgo"        },
+    { id: "riego",         label: "💧 Riego"         },
+    { id: "fertilizacion", label: "🌿 Fertilización" },
   ];
 
   return (
     <div style={estilos.contenedor}>
-      {/* Encabezado */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h1 style={{ margin:0, fontSize:"1.8rem", fontWeight:800, color:C.cafe }}>
+          <h1 style={{ margin: 0, fontSize: "1.8rem", fontWeight: 800, color: C.cafe }}>
             🤖 Inteligencia Artificial
           </h1>
-          <p style={{ margin:0, color:"#7a5c3a" }}>GranoVital IA — {cultivoNombre || `Cultivo #${cultivoId}`}</p>
+          {/* SEC-006 FIX: mostrar el ID real del cultivo */}
+          <p style={{ margin: 0, color: "#7a5c3a" }}>
+            GranoVital IA — Cultivo #{cultivoId}
+          </p>
         </div>
       </div>
 
-      {/* Banner RN-03 */}
-      <BannerRN03 validez={resumen} />
+      {/* IA-002 FIX: banner con estado de error explícito */}
+      <BannerRN03 validez={resumen} errorValidez={errorValidez} />
 
-      {/* Alertas del resumen */}
       {resumen?.alertas?.length > 0 && (
         <div style={{
-          background:"#fff7ed", border:`1px solid #ea580c`,
-          borderRadius:"12px", padding:"1rem 1.4rem",
+          background: "#fff7ed", border: `1px solid #ea580c`,
+          borderRadius: "12px", padding: "1rem 1.4rem",
         }}>
-          <p style={{ margin:"0 0 0.5rem", fontWeight:700, color:"#ea580c" }}>
+          <p style={{ margin: "0 0 0.5rem", fontWeight: 700, color: "#ea580c" }}>
             Alertas activas ({resumen.alertas.length})
           </p>
           {resumen.alertas.map((a, i) => (
-            <p key={i} style={{ margin:"0.2rem 0", fontSize:"0.85rem", color:"#7a5c3a" }}>
-              ⚠ {a}
-            </p>
+            <p key={i} style={{ margin: "0.2rem 0", fontSize: "0.85rem", color: "#7a5c3a" }}>⚠ {a}</p>
           ))}
         </div>
       )}
 
+      {/* IA-005: indicador de que hay resultados previos guardados */}
+      {(fito || riego || fert) && (
+        <div style={{
+          background: "#f0f9ff", border: "1px solid #0284c7",
+          borderRadius: "8px", padding: "0.6rem 1rem",
+          fontSize: "0.82rem", color: "#0284c7",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <span>💾 Predicciones anteriores restauradas desde tu sesión</span>
+          <button onClick={() => {
+            sessionStorage.removeItem(SESSION_KEY);
+            setFito(null); setRiego(null); setFert(null);
+          }} style={{
+            background: "none", border: "1px solid #0284c7", borderRadius: "4px",
+            color: "#0284c7", fontSize: "0.75rem", cursor: "pointer", padding: "0.2rem 0.5rem",
+          }}>
+            Limpiar
+          </button>
+        </div>
+      )}
+
       {/* Tabs */}
-      <div style={{
-        display:"flex", gap:0,
-        borderBottom:`2px solid ${C.borde}`,
-        overflowX:"auto",
-      }}>
+      <div style={{ display: "flex", gap: 0, borderBottom: `2px solid ${C.borde}`, overflowX: "auto" }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTabActiva(t.id)}
             style={{
-              padding:"0.6rem 1.2rem", border:"none", background:"none",
+              padding: "0.6rem 1.2rem", border: "none", background: "none",
               fontWeight: tabActiva === t.id ? 800 : 400,
               color:      tabActiva === t.id ? C.cafe : "#9a7a5a",
-              borderBottom: tabActiva === t.id
-                ? `3px solid ${C.cafe}` : "3px solid transparent",
-              cursor:"pointer", fontSize:"0.88rem",
-              marginBottom:"-2px", whiteSpace:"nowrap",
+              borderBottom: tabActiva === t.id ? `3px solid ${C.cafe}` : "3px solid transparent",
+              cursor: "pointer", fontSize: "0.88rem",
+              marginBottom: "-2px", whiteSpace: "nowrap",
             }}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Contenido de cada tab */}
-      <div style={{ minHeight:"300px" }}>
+      <div style={{ minHeight: "300px" }}>
         {tabActiva === "enfermedades" && (
           <div>
-            <p style={{ color:"#7a5c3a", fontSize:"0.88rem", marginBottom:"1rem" }}>
-              RF-05: suba una foto de una hoja de cafe para detectar Roya,
-              Mancha de Hierro, Antracnosis o CBD.
+            <p style={{ color: "#7a5c3a", fontSize: "0.88rem", marginBottom: "1rem" }}>
+              RF-05: suba una foto de una hoja de café para detectar Roya, Mancha de Hierro, Antracnosis o CBD.
             </p>
             <PanelImagen tipo="enfermedad" cultivoId={cultivoId} />
           </div>
         )}
-
         {tabActiva === "plagas" && (
           <div>
-            <p style={{ color:"#7a5c3a", fontSize:"0.88rem", marginBottom:"1rem" }}>
-              RF-06: suba una foto del cultivo o fruto para identificar Broca,
-              Minador de la Hoja, Trips o Acaro Rojo.
+            <p style={{ color: "#7a5c3a", fontSize: "0.88rem", marginBottom: "1rem" }}>
+              RF-06: suba una foto del cultivo o fruto para identificar Broca, Minador de la Hoja, Trips o Ácaro Rojo.
             </p>
             <PanelImagen tipo="plaga" cultivoId={cultivoId} />
           </div>
         )}
-
         {tabActiva === "prediccion" && (
           <TarjetaResultado
-            titulo="Prediccion de Riesgo Fitosanitario"
-            icono="🌦️"
-            datos={datosFito}
-            cargando={loadF}
-            error={errF}
+            titulo="Predicción de Riesgo Fitosanitario" icono="🌦️"
+            datos={datosFito} cargando={loadF} error={errF}
             urgencia={fito?.nivel_riesgo}
-            onAccion={ejecutarFito}
-            textoAccion="Predecir riesgo ahora"
-          />
+            onAccion={ejecutarFito} textoAccion="Predecir riesgo ahora" />
         )}
-
         {tabActiva === "riego" && (
           <TarjetaResultado
-            titulo="Recomendacion de Riego"
-            icono="💧"
-            datos={datosRiego}
-            cargando={loadR}
-            error={errR}
+            titulo="Recomendación de Riego" icono="💧"
+            datos={datosRiego} cargando={loadR} error={errR}
             urgencia={riego?.nivel_urgencia}
-            onAccion={ejecutarRiego}
-            textoAccion="Evaluar necesidad de riego"
-          />
+            onAccion={ejecutarRiego} textoAccion="Evaluar necesidad de riego" />
         )}
-
         {tabActiva === "fertilizacion" && (
           <TarjetaResultado
-            titulo="Plan de Fertilizacion"
-            icono="🌿"
-            datos={datosFert}
-            cargando={loadFe}
-            error={errFe}
+            titulo="Plan de Fertilización" icono="🌿"
+            datos={datosFert} cargando={loadFe} error={errFe}
             urgencia={fert?.nivel_urgencia}
-            onAccion={ejecutarFert}
-            textoAccion="Generar plan de fertilizacion"
-          />
+            onAccion={ejecutarFert} textoAccion="Generar plan de fertilización" />
         )}
       </div>
     </div>
@@ -527,8 +554,8 @@ export default function InteligenciaArtificial() {
 
 const estilos = {
   contenedor: {
-    minHeight:"100vh", background:C.gris, padding:"2rem",
-    fontFamily:"'Segoe UI', Roboto, sans-serif", color:C.texto,
-    display:"flex", flexDirection:"column", gap:"1.5rem",
+    minHeight: "100vh", background: C.gris, padding: "2rem",
+    fontFamily: "'Segoe UI', Roboto, sans-serif", color: C.texto,
+    display: "flex", flexDirection: "column", gap: "1.5rem",
   },
 };

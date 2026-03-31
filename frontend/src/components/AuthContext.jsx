@@ -1,7 +1,9 @@
 // =============================================================
 // frontend/src/components/AuthContext.jsx
-// Contexto global de autenticación — React Context API
-// Trazabilidad: RF-01, RF-02 | RN-01 (acceso por rol)
+//
+// AUTH-003 FIX: token expirado mid-session redirige al login
+//               Se escucha el evento 'gv:session_expired' emitido
+//               por api.js cuando el refresh falla.
 // =============================================================
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
@@ -9,15 +11,10 @@ import { authService } from "../services/authService";
 
 const AuthContext = createContext(null);
 
-/**
- * Proveedor de autenticación global.
- * Envuelve toda la aplicación para que cualquier componente
- * pueda acceder al usuario, rol y funciones de login/logout.
- */
 export function AuthProvider({ children }) {
-  const [usuario, setUsuario] = useState(null);
+  const [usuario,  setUsuario]  = useState(null);
   const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(null);
+  const [error,    setError]    = useState(null);
 
   // ── Verificar sesión al cargar la app ──────────────────────
   useEffect(() => {
@@ -29,13 +26,26 @@ export function AuthProvider({ children }) {
           setUsuario(me);
         }
       } catch {
-        // Sin sesión activa — estado inicial sin usuario
         authService.clearTokens();
       } finally {
         setCargando(false);
       }
     };
     restaurarSesion();
+  }, []);
+
+  // AUTH-003 FIX: escuchar evento de sesión expirada mid-session
+  // api.js emite este evento cuando el refresh token también falla
+  useEffect(() => {
+    const manejarSesionExpirada = () => {
+      authService.clearTokens();
+      setUsuario(null);
+      // La redirección la maneja el RutaProtegida en App.jsx
+      // al detectar estaAutenticado === false
+    };
+
+    window.addEventListener("gv:session_expired", manejarSesionExpirada);
+    return () => window.removeEventListener("gv:session_expired", manejarSesionExpirada);
   }, []);
 
   // ── Login ───────────────────────────────────────────────────
@@ -58,9 +68,9 @@ export function AuthProvider({ children }) {
     [usuario]
   );
 
-  const esAdmin        = () => tieneRol("Administrador");
-  const esCaficultor   = () => tieneRol("Caficultor", "Administrador");
-  const esProductor    = () => tieneRol("Productor", "Administrador");
+  const esAdmin           = () => tieneRol("Administrador");
+  const esCaficultor      = () => tieneRol("Caficultor", "Administrador");
+  const esProductor       = () => tieneRol("Productor", "Administrador");
   const esComercializador = () => tieneRol("Comercializador", "Administrador");
 
   const valor = {
@@ -81,7 +91,6 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;
 }
 
-/** Hook de conveniencia para usar el contexto de auth. */
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth debe usarse dentro de <AuthProvider>");

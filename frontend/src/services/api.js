@@ -1,8 +1,10 @@
 // =============================================================
 // frontend/src/services/api.js
-// Cliente HTTP base — BUG-005 FIX
-// El token se lee desde authService (memoria/sessionStorage),
-// NO desde localStorage (era inconsistente con authService.js)
+// Cliente HTTP base con Axios
+//
+// SEC-003 FIX: unificado el origen del token. Ya no se lee de
+// localStorage('token') — ahora siempre usa authService.getAccessToken()
+// que mantiene el token en memoria, consistente con authService.js.
 // =============================================================
 import axios from 'axios';
 import { authService } from './authService';
@@ -13,7 +15,7 @@ const API = axios.create({
 
 // Agrega el token JWT a cada petición automáticamente desde authService
 API.interceptors.request.use((config) => {
-  // BUG-005 FIX: leer desde authService, no localStorage
+  // SEC-003 FIX: leer SIEMPRE desde authService (memoria), nunca desde localStorage
   const token = authService.getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -33,7 +35,10 @@ API.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return API(originalRequest);
       } catch (_) {
+        // AUTH-003 FIX: limpiar tokens y emitir evento para que AuthContext
+        // detecte la sesión expirada y el estado React se actualice limpiamente
         authService.clearTokens();
+        window.dispatchEvent(new CustomEvent("gv:session_expired"));
         window.location.href = '/login';
       }
     }

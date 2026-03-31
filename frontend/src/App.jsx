@@ -1,3 +1,10 @@
+// =============================================================
+// frontend/src/App.jsx
+//
+// AUTH-001 FIX: rutas legacy ahora evalúan el rol antes de redirigir
+// AUTH-002 FIX: ruta /perfil existía en menuConfig pero no en el router — agregada
+// =============================================================
+
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './components/AuthContext';
 import Layout from './components/Layout';
@@ -34,10 +41,25 @@ const RutaProtegida = ({ children }) => {
   );
 };
 
+// AUTH-001 FIX: ruta legacy con verificación de rol
+const RutaLegacy = ({ rolEsperado, destino }) => {
+  const { estaAutenticado, usuario } = useAuth();
+
+  if (!estaAutenticado) return <Navigate to="/login" replace />;
+
+  const rolActual = usuario?.rol?.nombre_rol;
+
+  // Solo redirigir a la ruta legacy si el rol coincide
+  if (rolEsperado && rolActual !== rolEsperado && rolActual !== "Administrador") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <Navigate to={destino} replace />;
+};
+
 function AppRoutes() {
   const { estaAutenticado, usuario } = useAuth();
 
-  // Redirigir desde / según rol
   const getDashboardPath = () => {
     const rol = usuario?.rol?.nombre_rol;
     if (rol === "Comercializador") return "/mercado";
@@ -58,14 +80,20 @@ function AppRoutes() {
       <Route path="/trazabilidad" element={<RutaProtegida><Trazabilidad /></RutaProtegida>} />
       <Route path="/mercado"      element={<RutaProtegida><Mercado /></RutaProtegida>} />
       <Route path="/reportes"     element={<RutaProtegida><Reportes /></RutaProtegida>} />
-      <Route path="/perfil" element={<RutaProtegida><Perfil /></RutaProtegida>} />
+      {/* AUTH-002 FIX: ruta /perfil existía en menuConfig pero faltaba en el router */}
+      <Route path="/perfil"       element={<RutaProtegida><Perfil /></RutaProtegida>} />
 
-      {/* Rutas legacy — redirigen a las nuevas */}
-      <Route path="/admin/dashboard"     element={<Navigate to="/dashboard" replace />} />
-      <Route path="/cultivo/dashboard"   element={<Navigate to="/cultivos" replace />} />
-      <Route path="/produccion/dashboard" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/mercado/dashboard"   element={<Navigate to="/mercado" replace />} />
-      <Route path="/trazabilidad/consulta" element={<Navigate to="/trazabilidad" replace />} />
+      {/* AUTH-001 FIX: rutas legacy verifican rol antes de redirigir */}
+      <Route path="/admin/dashboard"
+        element={<RutaLegacy rolEsperado="Administrador" destino="/dashboard" />} />
+      <Route path="/cultivo/dashboard"
+        element={<RutaLegacy rolEsperado="Caficultor" destino="/cultivos" />} />
+      <Route path="/produccion/dashboard"
+        element={<RutaLegacy rolEsperado="Productor" destino="/dashboard" />} />
+      <Route path="/mercado/dashboard"
+        element={<RutaLegacy rolEsperado="Comercializador" destino="/mercado" />} />
+      <Route path="/trazabilidad/consulta"
+        element={<RutaLegacy rolEsperado="Consumidor" destino="/trazabilidad" />} />
 
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />

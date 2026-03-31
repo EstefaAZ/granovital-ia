@@ -1,19 +1,21 @@
 // ==============================================================
 // modulo_02_cultivos / frontend/src/services/cultivoService.js
-// Cliente HTTP - Consumo de la API de Cultivos y Lotes
-// RNF-01: timeout de 8 segundos por peticion
+// Cliente HTTP — Consumo de la API de Cultivos y Lotes
+// RNF-01: timeout por petición
 // RNF-04: adjunta el token JWT en cada solicitud
+//
+// OFF-003 FIX: timeout aumentado a 20s para conexiones 2G/Edge en campo
 // ==============================================================
 
 import { authService } from "./authService";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 
-// Tiempo maximo de espera por peticion (RNF-01)
-const TIMEOUT_MS = 8000;
+// OFF-003 FIX: 20 segundos para redes rurales lentas (original era 8s)
+const TIMEOUT_MS = 20_000;
 
 /**
- * Realiza una peticion HTTP con autenticacion JWT automatica.
+ * Realiza una petición HTTP con autenticación JWT automática.
  * Lanza un error con el mensaje del servidor si la respuesta no es OK.
  */
 async function peticion(ruta, opciones = {}) {
@@ -45,7 +47,7 @@ async function peticion(ruta, opciones = {}) {
   } catch (err) {
     clearTimeout(timer);
     if (err.name === "AbortError") {
-      throw new Error("La peticion supero el tiempo de espera (8 segundos)");
+      throw new Error("La conexión es lenta. Verifica tu señal e intenta de nuevo.");
     }
     throw err;
   }
@@ -79,7 +81,7 @@ export const cultivoService = {
       body: JSON.stringify(datos),
     }),
 
-  /** Eliminacion logica de un cultivo. */
+  /** Eliminación lógica de un cultivo. */
   eliminar: (id) =>
     peticion(`/cultivos/${id}`, { method: "DELETE" }),
 };
@@ -92,7 +94,7 @@ export const loteService = {
   /** Retorna los lotes de un cultivo. */
   listar: (cultivoId) => peticion(`/cultivos/${cultivoId}/lotes`),
 
-  /** Retorna el detalle de un lote especifico. */
+  /** Retorna el detalle de un lote específico. */
   obtener: (cultivoId, loteId) =>
     peticion(`/cultivos/${cultivoId}/lotes/${loteId}`),
 
@@ -110,7 +112,7 @@ export const loteService = {
       body: JSON.stringify(datos),
     }),
 
-  /** Eliminacion logica de un lote. */
+  /** Eliminación lógica de un lote. */
   eliminar: (cultivoId, loteId) =>
     peticion(`/cultivos/${cultivoId}/lotes/${loteId}`, { method: "DELETE" }),
 };

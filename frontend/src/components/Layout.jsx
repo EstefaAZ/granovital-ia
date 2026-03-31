@@ -2,12 +2,18 @@
 // frontend/src/components/Layout.jsx
 // Sidebar + Navbar — GranoVital IA
 // RN-01: navegación filtrada por rol
+//
+// QA FIXES sobre la versión original del proyecto:
+//   UX-004 FIX: body sin text-align:center — #root ya no tiene width fijo
+//   OFF-002 FIX: badge de pendientes offline en navbar
+//   Accesibilidad: aria-label en botones de toggle y nav
 // =============================================================
 
 import { useState, useRef, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { getMenuPorRol } from "./menuConfig";
+import { useOfflineSync } from "../hooks/useOfflineSync";
 import {
   LogOut,
   Menu,
@@ -17,6 +23,7 @@ import {
   User,
   Settings,
   ChevronDown,
+  WifiOff,
 } from "lucide-react";
 
 const styles = `
@@ -43,6 +50,8 @@ const styles = `
     font-family: 'DM Sans', sans-serif;
     background: var(--crema);
     color: var(--texto-oscuro);
+    /* UX-004 FIX: sin text-align:center global que desalineaba el sidebar */
+    text-align: left;
   }
 
   .gv-layout {
@@ -436,7 +445,7 @@ const styles = `
 
   @media (max-width: 768px) {
     .gv-navbar { left: 0 !important; }
-    .gv-main   { margin-left: 0 !important; }
+    .gv-main   { margin-left: 0 !important; padding: 16px; }
     .gv-overlay.visible { display: block; }
   }
 `;
@@ -458,6 +467,9 @@ export default function Layout({ children, currentPath = "/" }) {
   const [sidebarAbierto, setSidebarAbierto] = useState(true);
   const [dropdownAbierto, setDropdownAbierto] = useState(false);
   const dropdownRef = useRef(null);
+
+  // OFF-002 FIX: badge de registros pendientes de sincronización offline
+  const { pendientes, sincronizando } = useOfflineSync();
 
   const rol = usuario?.rol?.nombre_rol || "";
 
@@ -501,9 +513,10 @@ export default function Layout({ children, currentPath = "/" }) {
         />
 
         {/* ── SIDEBAR ── */}
-        <aside className={`gv-sidebar ${sidebarAbierto ? "" : "collapsed"}`}>
+        <aside className={`gv-sidebar ${sidebarAbierto ? "" : "collapsed"}`}
+          aria-label="Menú de navegación principal">
           <div className="gv-sidebar-logo">
-            <div className="gv-logo-icon">
+            <div className="gv-logo-icon" aria-hidden="true">
               <Coffee size={18} color="#F5ECD7" />
             </div>
             <div>
@@ -514,7 +527,7 @@ export default function Layout({ children, currentPath = "/" }) {
 
           {rol && <div className="gv-rol-badge">{rol}</div>}
 
-          <nav className="gv-nav">
+          <nav className="gv-nav" aria-label="Módulos del sistema">
             {menuItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -528,9 +541,9 @@ export default function Layout({ children, currentPath = "/" }) {
                     if (window.innerWidth <= 768) setSidebarAbierto(false);
                   }}
                 >
-                  <Icon size={18} />
+                  <Icon size={18} aria-hidden="true" />
                   <span>{item.label}</span>
-                  <ChevronRight size={14} className="gv-nav-arrow" />
+                  <ChevronRight size={14} className="gv-nav-arrow" aria-hidden="true" />
                 </NavLink>
               );
             })}
@@ -538,7 +551,7 @@ export default function Layout({ children, currentPath = "/" }) {
 
           <div className="gv-sidebar-footer">
             <button className="gv-logout-btn" onClick={handleLogout}>
-              <LogOut size={18} />
+              <LogOut size={18} aria-hidden="true" />
               <span>Cerrar sesión</span>
             </button>
           </div>
@@ -546,11 +559,34 @@ export default function Layout({ children, currentPath = "/" }) {
 
         {/* ── NAVBAR ── */}
         <header className={`gv-navbar ${sidebarAbierto ? "" : "sidebar-collapsed"}`}>
-          <button className="gv-toggle-btn" onClick={() => setSidebarAbierto(v => !v)}>
+          <button
+            className="gv-toggle-btn"
+            onClick={() => setSidebarAbierto(v => !v)}
+            aria-label={sidebarAbierto ? "Ocultar menú lateral" : "Mostrar menú lateral"}
+            aria-expanded={sidebarAbierto}
+          >
             {sidebarAbierto ? <X size={18} /> : <Menu size={18} />}
           </button>
 
           <span className="gv-page-title">{pageTitle}</span>
+
+          {/* OFF-002 FIX: badge de registros pendientes offline */}
+          {pendientes > 0 && (
+            <div
+              style={{
+                display: "flex", alignItems: "center", gap: "6px",
+                background: "#fffbeb", border: "1px solid #c8a000",
+                borderRadius: "20px", padding: "4px 10px",
+                fontSize: "12px", color: "#92400e", flexShrink: 0,
+              }}
+              title={`${pendientes} registro(s) pendiente(s) de sincronizar cuando haya conexión`}
+              role="status"
+              aria-live="polite"
+            >
+              <WifiOff size={13} aria-hidden="true" />
+              {sincronizando ? "Sincronizando..." : `${pendientes} pendiente(s)`}
+            </div>
+          )}
 
           <div className="gv-navbar-spacer" />
 
@@ -559,21 +595,26 @@ export default function Layout({ children, currentPath = "/" }) {
             <div
               className="gv-user-trigger"
               onClick={() => setDropdownAbierto(v => !v)}
+              role="button"
+              aria-haspopup="true"
+              aria-expanded={dropdownAbierto}
+              aria-label={`Menú de usuario: ${nombreCompleto || "Usuario"}`}
             >
               <div>
                 <div className="gv-user-name">{nombreCompleto || "Usuario"}</div>
                 <div className="gv-user-rol">{rol}</div>
               </div>
-              <div className="gv-avatar">{inicial}</div>
+              <div className="gv-avatar" aria-hidden="true">{inicial}</div>
               <ChevronDown
                 size={14}
                 className={`gv-chevron ${dropdownAbierto ? "open" : ""}`}
+                aria-hidden="true"
               />
             </div>
 
             {/* Dropdown */}
             {dropdownAbierto && (
-              <div className="gv-dropdown">
+              <div className="gv-dropdown" role="menu" aria-label="Opciones de usuario">
                 <div className="gv-dropdown-header">
                   <div className="gv-dropdown-nombre">{nombreCompleto}</div>
                   <div className="gv-dropdown-correo">{usuario?.correo}</div>
@@ -582,18 +623,20 @@ export default function Layout({ children, currentPath = "/" }) {
                 <button
                   className="gv-dropdown-item"
                   onClick={() => irA("/perfil")}
+                  role="menuitem"
                 >
-                  <User size={15} />
+                  <User size={15} aria-hidden="true" />
                   Mi perfil
                 </button>
 
-                <div className="gv-dropdown-divider" />
+                <div className="gv-dropdown-divider" role="separator" />
 
                 <button
                   className="gv-dropdown-item danger"
                   onClick={handleLogout}
+                  role="menuitem"
                 >
-                  <LogOut size={15} />
+                  <LogOut size={15} aria-hidden="true" />
                   Cerrar sesión
                 </button>
               </div>
@@ -602,7 +645,10 @@ export default function Layout({ children, currentPath = "/" }) {
         </header>
 
         {/* ── CONTENIDO ── */}
-        <main className={`gv-main ${sidebarAbierto ? "" : "sidebar-collapsed"}`}>
+        <main
+          className={`gv-main ${sidebarAbierto ? "" : "sidebar-collapsed"}`}
+          id="main-content"
+        >
           {children}
         </main>
       </div>

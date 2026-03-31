@@ -1,3 +1,7 @@
+/* GranoVital IA — index.css
+   UX-004 FIX: eliminado width: 1126px en #root que rompía el layout del sidebar
+   en resoluciones entre 900-1126px */
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -44,22 +48,17 @@
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
 }
 
 body {
   margin: 0;
 }
 
+/* UX-004 FIX: #root sin restricción de ancho fijo.
+   El Layout.jsx controla el espacio con sidebar + navbar fijos. */
 #root {
-  width: 1126px;
+  width: 100%;
   max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;
   flex-direction: column;

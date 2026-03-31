@@ -1,35 +1,42 @@
 // ==============================================================
-// modulo_05_trazabilidad / frontend/src/pages/Trazabilidad.jsx
+// frontend/src/pages/Trazabilidad.jsx
 // Dashboard de Trazabilidad — RF-10, RF-11, RF-12, RF-15
 //
 // Paneles:
 //   Lista de lotes con estado (Diagrama de Estados LOTE)
-//   Detalle del lote: informacion, secado y clasificacion
+//   Detalle del lote: información, secado y clasificación
 //   Registro de secado con alertas (RF-11)
-//   Clasificacion del grano FNC (RF-12)
-//   Vista publica QR simulada (RN-05)
+//   Clasificación del grano FNC (RF-12)
+//   Vista pública QR simulada (RN-05)
 //   Log de eventos inmutables (RN-04)
+//
+// QA FIXES sobre la versión original del proyecto:
+//   DATA-005 FIX: id_cultivo desde sessionStorage, no hardcodeado a 1
+//   DATA-006 FIX: campo fecha_cosecha con max = hoy (no permite fechas futuras)
+//   DATA-003 FIX: anti-doble-envío con useRef en formularios
+//   UX-001 FIX:  Modal compartido con cierre por tecla Escape (WCAG 2.1)
+//   UX-002 FIX:  aria-label en botón cerrar modal
+//   UX-005 FIX:  Layout responsive para móvil (grid 1 columna en <768px)
 // ==============================================================
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { trazabilidadService } from "../services/trazabilidadService";
+import Modal from "../components/Modal";
 
-// ── Paleta GranoVital ────────────────────────────────────────
 const C = {
   cafe: "#6f3a1b", cafeCla: "#a0522d", verde: "#2d7a3a",
   amarillo: "#c8a000", rojo: "#b91c1c", azul: "#0284c7",
   gris: "#f9f3ee", borde: "#d4b896", texto: "#1a0e05",
 };
 
-// ── Colores de estado (Diagrama de Estados LOTE) ─────────────
 const ESTADO_CONFIG = {
-  registrado:    { color: "#6366f1", label: "Registrado",     icono: "📋" },
-  disponible:    { color: C.azul,    label: "Disponible",     icono: "✅" },
-  en_analisis:   { color: C.amarillo,label: "En Análisis",    icono: "🔬" },
-  aprobado:      { color: C.verde,   label: "Aprobado",       icono: "🏆" },
-  con_problema:  { color: C.rojo,    label: "Con Problema",   icono: "⚠️" },
-  vendido:       { color: "#059669", label: "Vendido",        icono: "💰" },
-  eliminado:     { color: "#9ca3af", label: "Eliminado",      icono: "🗑️" },
+  registrado:   { color: "#6366f1", label: "Registrado",   icono: "📋" },
+  disponible:   { color: C.azul,    label: "Disponible",   icono: "✅" },
+  en_analisis:  { color: C.amarillo,label: "En Análisis",  icono: "🔬" },
+  aprobado:     { color: C.verde,   label: "Aprobado",     icono: "🏆" },
+  con_problema: { color: C.rojo,    label: "Con Problema", icono: "⚠️" },
+  vendido:      { color: "#059669", label: "Vendido",      icono: "💰" },
+  eliminado:    { color: "#9ca3af", label: "Eliminado",    icono: "🗑️" },
 };
 
 const CATEGORIA_CONFIG = {
@@ -40,6 +47,11 @@ const CATEGORIA_CONFIG = {
   pasilla:       { color: C.rojo,    label: "Pasilla" },
   sin_clasificar:{ color: "#9ca3af", label: "Sin Clasificar" },
 };
+
+// DATA-006 FIX: fecha máxima permitida = hoy
+function fechaHoy() {
+  return new Date().toISOString().split("T")[0];
+}
 
 // ── Subcomponentes ────────────────────────────────────────────
 
@@ -61,14 +73,20 @@ function BadgeEstado({ estado }) {
 }
 
 function TarjetaLote({ lote, seleccionado, onClick }) {
-  const cfg = ESTADO_CONFIG[lote.estado] || {};
   return (
-    <div onClick={onClick} style={{
-      background: seleccionado ? "#fff8f0" : "#fff",
-      border: `2px solid ${seleccionado ? C.cafe : C.borde}`,
-      borderRadius: "12px", padding: "1rem 1.2rem",
-      cursor: "pointer", transition: "all 0.15s",
-    }}>
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      aria-pressed={seleccionado}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+      style={{
+        background: seleccionado ? "#fff8f0" : "#fff",
+        border: `2px solid ${seleccionado ? C.cafe : C.borde}`,
+        borderRadius: "12px", padding: "1rem 1.2rem",
+        cursor: "pointer", transition: "all 0.15s",
+      }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <p style={{ margin: 0, fontWeight: 800, color: C.cafe, fontSize: "1rem" }}>
@@ -91,19 +109,30 @@ function TarjetaLote({ lote, seleccionado, onClick }) {
   );
 }
 
-function FormularioLote({ onCrear, onCancelar }) {
+function FormularioLote({ cultivoId, onCrear, onCancelar }) {
   const [form, setForm] = useState({
-    variedad_cafe: "castillo", fecha_cosecha: "", metodo_cosecha: "manual_selectiva",
-    kg_cereza_cosechados: "", id_cultivo: 1, metodo_beneficio: "",
+    variedad_cafe:        "castillo",
+    fecha_cosecha:        "",
+    metodo_cosecha:       "manual_selectiva",
+    kg_cereza_cosechados: "",
+    // DATA-005 FIX: id_cultivo desde sessionStorage, no hardcodeado a 1
+    id_cultivo:           cultivoId,
+    metodo_beneficio:     "",
   });
   const [cargando, setCargando] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError]       = useState("");
+  const enviandoRef = useRef(false); // DATA-003
 
   const guardar = async () => {
     if (!form.fecha_cosecha || !form.kg_cereza_cosechados) {
-      setError("Fecha de cosecha y kilogramos son obligatorios.");
-      return;
+      setError("Fecha de cosecha y kilogramos son obligatorios."); return;
     }
+    // DATA-006 FIX: no permitir fechas futuras
+    if (form.fecha_cosecha > fechaHoy()) {
+      setError("La fecha de cosecha no puede ser en el futuro."); return;
+    }
+    if (enviandoRef.current) return; // DATA-003
+    enviandoRef.current = true;
     setCargando(true); setError("");
     try {
       const lote = await trazabilidadService.crearLote({
@@ -112,12 +141,16 @@ function FormularioLote({ onCrear, onCancelar }) {
         fecha_cosecha: new Date(form.fecha_cosecha).toISOString(),
       });
       onCrear(lote);
-    } catch (e) { setError(e.message); }
-    finally { setCargando(false); }
+    } catch (e) {
+      setError(e.message);
+      enviandoRef.current = false;
+    } finally {
+      setCargando(false);
+    }
   };
 
   const campo = (label, key, tipo = "text", opciones = null) => (
-    <div style={{ marginBottom: "0.8rem" }}>
+    <div key={key} style={{ marginBottom: "0.8rem" }}>
       <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, color: "#7a5c3a", marginBottom: "0.25rem" }}>
         {label}
       </label>
@@ -128,6 +161,8 @@ function FormularioLote({ onCrear, onCancelar }) {
           </select>
         : <input type={tipo} value={form[key]}
             onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+            // DATA-006 FIX: max = hoy solo para campo de fecha
+            max={key === "fecha_cosecha" ? fechaHoy() : undefined}
             style={estiloInput} />
       }
     </div>
@@ -136,58 +171,69 @@ function FormularioLote({ onCrear, onCancelar }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
       {campo("Variedad", "variedad_cafe", "text", [
-        { v: "castillo", l: "Castillo" }, { v: "colombia", l: "Colombia" },
-        { v: "caturra", l: "Caturra" }, { v: "cenicafe_1", l: "Cenicafé 1" },
-        { v: "otro", l: "Otro" },
+        { v: "castillo",   l: "Castillo" },
+        { v: "colombia",   l: "Colombia" },
+        { v: "caturra",    l: "Caturra" },
+        { v: "cenicafe_1", l: "Cenicafé 1" },
+        { v: "otro",       l: "Otro" },
       ])}
-      {campo("Fecha de cosecha", "fecha_cosecha", "date")}
+      {campo("Fecha de cosecha *", "fecha_cosecha", "date")}
       {campo("Método de cosecha", "metodo_cosecha", "text", [
         { v: "manual_selectiva", l: "Manual Selectiva" },
-        { v: "manual_global", l: "Manual Global" },
-        { v: "mecanica", l: "Mecánica" },
+        { v: "manual_global",    l: "Manual Global" },
+        { v: "mecanica",         l: "Mecánica" },
       ])}
-      {campo("Kg de cereza cosechados", "kg_cereza_cosechados", "number")}
+      {campo("Kg de cereza cosechados *", "kg_cereza_cosechados", "number")}
       {campo("Método de beneficio", "metodo_beneficio", "text", [
-        { v: "", l: "No definido aún" }, { v: "lavado", l: "Lavado" },
-        { v: "natural", l: "Natural" }, { v: "honey", l: "Honey" },
+        { v: "",          l: "No definido aún" },
+        { v: "lavado",    l: "Lavado" },
+        { v: "natural",   l: "Natural" },
+        { v: "honey",     l: "Honey" },
         { v: "anaerobic", l: "Anaeróbico" },
       ])}
-      {error && <p style={{ color: C.rojo, fontSize: "0.82rem" }}>{error}</p>}
+      {error && <p style={{ color: C.rojo, fontSize: "0.82rem" }} role="alert">{error}</p>}
       <div style={{ display: "flex", gap: "0.6rem", marginTop: "0.5rem" }}>
-        <button onClick={guardar} disabled={cargando} style={{
-          flex: 1, padding: "0.7rem", borderRadius: "8px", border: "none",
-          background: cargando ? "#c9a88a" : C.cafe, color: "#fff",
-          fontWeight: 700, cursor: cargando ? "not-allowed" : "pointer",
-        }}>
+        {/* DATA-003 FIX: deshabilitado durante envío */}
+        <button onClick={guardar} disabled={cargando} aria-disabled={cargando}
+          style={{
+            flex: 1, padding: "0.7rem", borderRadius: "8px", border: "none",
+            background: cargando ? "#c9a88a" : C.cafe, color: "#fff",
+            fontWeight: 700, cursor: cargando ? "not-allowed" : "pointer",
+          }}>
           {cargando ? "Guardando..." : "Registrar Lote"}
         </button>
-        <button onClick={onCancelar} style={{
-          padding: "0.7rem 1rem", borderRadius: "8px",
-          border: `1px solid ${C.borde}`, background: "#fff",
-          color: C.cafe, cursor: "pointer",
-        }}>Cancelar</button>
+        <button onClick={onCancelar}
+          style={{ padding: "0.7rem 1rem", borderRadius: "8px",
+            border: `1px solid ${C.borde}`, background: "#fff",
+            color: C.cafe, cursor: "pointer" }}>
+          Cancelar
+        </button>
       </div>
     </div>
   );
 }
 
 function PanelSecado({ lote }) {
-  const [form, setForm] = useState({ temperatura_c: "", humedad_grano_pct: "",
-    horas_transcurridas: "", metodo_secado: "solar" });
+  const [form, setForm] = useState({
+    temperatura_c: "", humedad_grano_pct: "",
+    horas_transcurridas: "", metodo_secado: "solar",
+  });
   const [resultado, setResultado] = useState(null);
-  const [resumen, setResumen]     = useState(null);
-  const [cargando, setCargando]   = useState(false);
-  const [error, setError]         = useState("");
+  const [resumen,   setResumen]   = useState(null);
+  const [cargando,  setCargando]  = useState(false);
+  const [error,     setError]     = useState("");
+  const enviandoRef = useRef(false); // DATA-003
 
   useEffect(() => {
-    trazabilidadService.resumenSecado(lote.id_lote)
-      .then(setResumen).catch(() => {});
+    trazabilidadService.resumenSecado(lote.id_lote).then(setResumen).catch(() => {});
   }, [lote.id_lote]);
 
   const registrar = async () => {
     if (!form.temperatura_c || !form.horas_transcurridas) {
       setError("Temperatura y horas son obligatorios."); return;
     }
+    if (enviandoRef.current) return; // DATA-003
+    enviandoRef.current = true;
     setCargando(true); setError("");
     try {
       const r = await trazabilidadService.registrarSecado(lote.id_lote, {
@@ -199,8 +245,12 @@ function PanelSecado({ lote }) {
       setResultado(r);
       const res = await trazabilidadService.resumenSecado(lote.id_lote);
       setResumen(res);
-    } catch (e) { setError(e.message); }
-    finally { setCargando(false); }
+    } catch (e) {
+      setError(e.message);
+      enviandoRef.current = false;
+    } finally {
+      setCargando(false);
+    }
   };
 
   return (
@@ -233,9 +283,9 @@ function PanelSecado({ lote }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
         {[
-          ["Temperatura (°C) *", "temperatura_c", "number"],
-          ["Humedad del grano (%)", "humedad_grano_pct", "number"],
-          ["Horas transcurridas *", "horas_transcurridas", "number"],
+          ["Temperatura (°C) *",     "temperatura_c",       "number"],
+          ["Humedad del grano (%)",   "humedad_grano_pct",   "number"],
+          ["Horas transcurridas *",  "horas_transcurridas", "number"],
         ].map(([label, key, tipo]) => (
           <div key={key}>
             <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600,
@@ -258,9 +308,9 @@ function PanelSecado({ lote }) {
         </div>
       </div>
 
-      {error && <p style={{ color: C.rojo, fontSize: "0.82rem", margin: 0 }}>{error}</p>}
+      {error && <p style={{ color: C.rojo, fontSize: "0.82rem", margin: 0 }} role="alert">{error}</p>}
 
-      <button onClick={registrar} disabled={cargando} style={{
+      <button onClick={registrar} disabled={cargando} aria-disabled={cargando} style={{
         padding: "0.7rem", borderRadius: "8px", border: "none",
         background: cargando ? "#c9a88a" : C.cafe, color: "#fff",
         fontWeight: 700, cursor: cargando ? "not-allowed" : "pointer",
@@ -294,16 +344,21 @@ function PanelSecado({ lote }) {
 }
 
 function PanelClasificacion({ lote, onClasificado }) {
-  const [form, setForm] = useState({ numero_defectos: "", humedad_pct: "",
-    puntaje_taza: "", metodo: "ia_automatica" });
+  const [form, setForm] = useState({
+    numero_defectos: "", humedad_pct: "",
+    puntaje_taza: "", metodo: "ia_automatica",
+  });
   const [resultado, setResultado] = useState(null);
-  const [cargando, setCargando]   = useState(false);
-  const [error, setError]         = useState("");
+  const [cargando,  setCargando]  = useState(false);
+  const [error,     setError]     = useState("");
+  const enviandoRef = useRef(false); // DATA-003
 
   const clasificar = async () => {
     if (!form.numero_defectos || !form.humedad_pct) {
       setError("Defectos y humedad son obligatorios."); return;
     }
+    if (enviandoRef.current) return; // DATA-003
+    enviandoRef.current = true;
     setCargando(true); setError("");
     try {
       const r = await trazabilidadService.clasificarGrano(lote.id_lote, {
@@ -314,8 +369,12 @@ function PanelClasificacion({ lote, onClasificado }) {
       });
       setResultado(r);
       onClasificado && onClasificado(r);
-    } catch (e) { setError(e.message); }
-    finally { setCargando(false); }
+    } catch (e) {
+      setError(e.message);
+      enviandoRef.current = false;
+    } finally {
+      setCargando(false);
+    }
   };
 
   const catConfig = resultado ? CATEGORIA_CONFIG[resultado.categoria] : null;
@@ -329,8 +388,8 @@ function PanelClasificacion({ lote, onClasificado }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
         {[
           ["N° de defectos (por 300g) *", "numero_defectos", "number"],
-          ["Humedad del grano (%) *", "humedad_pct", "number"],
-          ["Puntaje de taza SCA (0-100)", "puntaje_taza", "number"],
+          ["Humedad del grano (%) *",      "humedad_pct",    "number"],
+          ["Puntaje de taza SCA (0-100)",  "puntaje_taza",   "number"],
         ].map(([label, key, tipo]) => (
           <div key={key}>
             <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600,
@@ -353,9 +412,9 @@ function PanelClasificacion({ lote, onClasificado }) {
         </div>
       </div>
 
-      {error && <p style={{ color: C.rojo, fontSize: "0.82rem", margin: 0 }}>{error}</p>}
+      {error && <p style={{ color: C.rojo, fontSize: "0.82rem", margin: 0 }} role="alert">{error}</p>}
 
-      <button onClick={clasificar} disabled={cargando} style={{
+      <button onClick={clasificar} disabled={cargando} aria-disabled={cargando} style={{
         padding: "0.7rem", borderRadius: "8px", border: "none",
         background: cargando ? "#c9a88a" : C.cafe, color: "#fff",
         fontWeight: 700, cursor: cargando ? "not-allowed" : "pointer",
@@ -404,10 +463,16 @@ function PanelClasificacion({ lote, onClasificado }) {
 // ── Componente principal ─────────────────────────────────────
 
 export default function Trazabilidad() {
+  // DATA-005 FIX: cultivoId desde sessionStorage (escrito por Cultivos.jsx)
+  // El original tenía id_cultivo: 1 hardcodeado en FormularioLote
+  const cultivoId = sessionStorage.getItem("gv_cultivo_activo")
+    ? parseInt(sessionStorage.getItem("gv_cultivo_activo"), 10)
+    : null;
+
   const [lotes,       setLotes]       = useState([]);
   const [loteActivo,  setLoteActivo]  = useState(null);
   const [tabActiva,   setTabActiva]   = useState("secado");
-  const [mostrarForm, setMostrarForm] = useState(false);
+  const [mostrarModal, setMostrarModal] = useState(false); // UX-001 FIX: modal en lugar de inline
   const [cargando,    setCargando]    = useState(true);
   const [eventos,     setEventos]     = useState([]);
 
@@ -428,7 +493,7 @@ export default function Trazabilidad() {
     try {
       const ev = await trazabilidadService.logEventos(lote.id_lote);
       setEventos(ev || []);
-    } catch (e) { setEventos([]); }
+    } catch { setEventos([]); }
   };
 
   const confirmar = async () => {
@@ -442,15 +507,28 @@ export default function Trazabilidad() {
   };
 
   const TABS = [
-    { id: "secado",          label: "🌡️ Secado" },
-    { id: "clasificacion",   label: "🏷️ Clasificación" },
-    { id: "eventos",         label: "📋 Eventos" },
-    { id: "qr",              label: "📱 QR Público" },
+    { id: "secado",        label: "🌡️ Secado" },
+    { id: "clasificacion", label: "🏷️ Clasificación" },
+    { id: "eventos",       label: "📋 Eventos" },
+    { id: "qr",            label: "📱 QR Público" },
   ];
 
   return (
     <div style={{ minHeight: "100vh", background: C.gris, fontFamily: "'Segoe UI', Roboto, sans-serif",
       color: C.texto, display: "flex", flexDirection: "column" }}>
+
+      {/* UX-005 FIX: CSS para layout responsive en móvil */}
+      <style>{`
+        @media (max-width: 768px) {
+          .traza-grid { grid-template-columns: 1fr !important; }
+          .traza-panel-izq {
+            border-right: none !important;
+            border-bottom: 2px solid ${C.borde};
+            max-height: 280px;
+            overflow-y: auto;
+          }
+        }
+      `}</style>
 
       {/* Encabezado */}
       <div style={{ background: C.cafe, padding: "1.2rem 2rem",
@@ -463,20 +541,29 @@ export default function Trazabilidad() {
             RF-10 RF-11 RF-12 · RN-02 RN-04 RN-05
           </p>
         </div>
-        <button onClick={() => setMostrarForm(true)} style={{
-          padding: "0.6rem 1.4rem", borderRadius: "10px",
-          border: "none", background: "#fff",
-          color: C.cafe, fontWeight: 800, cursor: "pointer", fontSize: "0.9rem",
-        }}>
+        <button
+          onClick={() => setMostrarModal(true)}
+          aria-label="Registrar nuevo lote de trazabilidad"
+          style={{
+            padding: "0.6rem 1.4rem", borderRadius: "10px",
+            border: "none", background: "#fff",
+            color: C.cafe, fontWeight: 800, cursor: "pointer", fontSize: "0.9rem",
+          }}>
           + Nuevo Lote
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", flex: 1, overflow: "hidden" }}>
+      {/* UX-005 FIX: grid con clase CSS responsive */}
+      <div className="traza-grid" style={{
+        display: "grid", gridTemplateColumns: "320px 1fr",
+        flex: 1, overflow: "hidden",
+      }}>
 
         {/* Panel izquierdo — Lista de lotes */}
-        <div style={{ borderRight: `2px solid ${C.borde}`, padding: "1.2rem",
-          overflowY: "auto", background: "#fff" }}>
+        <div className="traza-panel-izq" style={{
+          borderRight: `2px solid ${C.borde}`, padding: "1.2rem",
+          overflowY: "auto", background: "#fff",
+        }}>
           <p style={{ margin: "0 0 0.8rem", fontWeight: 700, color: C.cafe }}>
             Mis Lotes ({lotes.length})
           </p>
@@ -500,18 +587,8 @@ export default function Trazabilidad() {
 
         {/* Panel derecho — Detalle */}
         <div style={{ padding: "1.5rem", overflowY: "auto" }}>
-          {mostrarForm && (
-            <div style={{ background: "#fff", border: `1px solid ${C.borde}`,
-              borderRadius: "14px", padding: "1.5rem", marginBottom: "1.5rem" }}>
-              <h3 style={{ margin: "0 0 1rem", color: C.cafe }}>Registrar Nuevo Lote</h3>
-              <FormularioLote
-                onCrear={(l) => { setLotes(p => [l, ...p]); setMostrarForm(false); seleccionar(l); }}
-                onCancelar={() => setMostrarForm(false)}
-              />
-            </div>
-          )}
 
-          {!loteActivo && !mostrarForm && (
+          {!loteActivo && (
             <div style={{ textAlign: "center", padding: "4rem 2rem", color: "#9a7a5a" }}>
               <p style={{ fontSize: "3rem" }}>☕</p>
               <p style={{ fontSize: "1.1rem" }}>Seleccione un lote para ver su detalle</p>
@@ -523,7 +600,8 @@ export default function Trazabilidad() {
               {/* Header lote */}
               <div style={{ background: "#fff", border: `1px solid ${C.borde}`,
                 borderRadius: "14px", padding: "1.2rem 1.5rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ display: "flex", justifyContent: "space-between",
+                  alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
                   <div>
                     <h2 style={{ margin: 0, color: C.cafe }}>{loteActivo.codigo_lote}</h2>
                     <p style={{ margin: "0.2rem 0 0", color: "#7a5c3a", fontSize: "0.9rem" }}>
@@ -544,22 +622,27 @@ export default function Trazabilidad() {
                 )}
                 {loteActivo.codigo_qr && (
                   <p style={{ margin: "0.5rem 0 0", fontSize: "0.82rem", color: C.verde }}>
-                    🔗 QR Activo: <a href={loteActivo.codigo_qr} target="_blank"
-                      rel="noreferrer" style={{ color: C.verde }}>{loteActivo.codigo_qr}</a>
+                    🔗 QR Activo:{" "}
+                    <a href={loteActivo.codigo_qr} target="_blank" rel="noreferrer"
+                      style={{ color: C.verde }}>{loteActivo.codigo_qr}</a>
                   </p>
                 )}
               </div>
 
               {/* Tabs */}
-              <div style={{ display: "flex", borderBottom: `2px solid ${C.borde}`, gap: 0 }}>
+              <div style={{ display: "flex", borderBottom: `2px solid ${C.borde}`,
+                gap: 0, overflowX: "auto" }}>
                 {TABS.map(t => (
-                  <button key={t.id} onClick={() => setTabActiva(t.id)} style={{
-                    padding: "0.55rem 1.1rem", border: "none", background: "none",
-                    fontWeight: tabActiva === t.id ? 800 : 400,
-                    color:      tabActiva === t.id ? C.cafe : "#9a7a5a",
-                    borderBottom: tabActiva === t.id ? `3px solid ${C.cafe}` : "3px solid transparent",
-                    cursor: "pointer", fontSize: "0.85rem", marginBottom: "-2px",
-                  }}>{t.label}</button>
+                  <button key={t.id} onClick={() => setTabActiva(t.id)}
+                    role="tab" aria-selected={tabActiva === t.id}
+                    style={{
+                      padding: "0.55rem 1.1rem", border: "none", background: "none",
+                      fontWeight: tabActiva === t.id ? 800 : 400,
+                      color:      tabActiva === t.id ? C.cafe : "#9a7a5a",
+                      borderBottom: tabActiva === t.id ? `3px solid ${C.cafe}` : "3px solid transparent",
+                      cursor: "pointer", fontSize: "0.85rem",
+                      marginBottom: "-2px", whiteSpace: "nowrap",
+                    }}>{t.label}</button>
                 ))}
               </div>
 
@@ -573,8 +656,7 @@ export default function Trazabilidad() {
                       const l = await trazabilidadService.obtenerLote(loteActivo.id_lote);
                       setLoteActivo(l);
                       await cargarLotes();
-                    }}
-                  />
+                    }} />
                 )}
                 {tabActiva === "eventos" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
@@ -646,6 +728,23 @@ export default function Trazabilidad() {
           )}
         </div>
       </div>
+
+      {/* UX-001/002 FIX: Modal compartido con Escape y aria-label */}
+      <Modal
+        abierto={mostrarModal}
+        titulo="Registrar Nuevo Lote"
+        onCerrar={() => setMostrarModal(false)}
+      >
+        <FormularioLote
+          cultivoId={cultivoId}
+          onCrear={(l) => {
+            setLotes(p => [l, ...p]);
+            setMostrarModal(false);
+            seleccionar(l);
+          }}
+          onCancelar={() => setMostrarModal(false)}
+        />
+      </Modal>
     </div>
   );
 }

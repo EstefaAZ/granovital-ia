@@ -1,14 +1,18 @@
 // ==============================================================
 // modulo_03_monitoreo / frontend/src/services/monitoreoService.js
-// Cliente HTTP - Consumo de la API de Monitoreo
-// RNF-01: timeout de 8 segundos por peticion
-// RNF-04: token JWT adjunto automaticamente
+// Cliente HTTP — Consumo de la API de Monitoreo
+// RNF-01: timeout por petición
+// RNF-04: token JWT adjunto automáticamente
+//
+// OFF-003 FIX: timeout aumentado a 20s para conexiones 2G/Edge en campo
 // ==============================================================
 
 import { authService } from "./authService";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
-const TIMEOUT_MS = 8000;
+
+// OFF-003 FIX: 20 segundos para redes rurales (original era 8s)
+const TIMEOUT_MS = 20_000;
 
 async function peticion(ruta, opciones = {}) {
   const token = authService.getAccessToken();
@@ -35,7 +39,7 @@ async function peticion(ruta, opciones = {}) {
   } catch (err) {
     clearTimeout(timer);
     if (err.name === "AbortError") {
-      throw new Error("La peticion supero el tiempo de espera (8s). Verifique su conexion.");
+      throw new Error("La conexión es lenta. Verifica tu señal e intenta de nuevo.");
     }
     throw err;
   }
@@ -49,7 +53,7 @@ export const monitoreoService = {
   /** Resumen consolidado del monitoreo del cultivo. */
   resumen: (cultivoId) => peticion(`/monitoreo/${cultivoId}/resumen`),
 
-  /** RN-03: verifica si los datos estan dentro del umbral de 24 horas. */
+  /** RN-03: verifica si los datos están dentro del umbral de 24 horas. */
   verificarValidez: (cultivoId) => peticion(`/monitoreo/${cultivoId}/validez`),
 };
 

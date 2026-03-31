@@ -1,12 +1,15 @@
 // ==============================================================
-// modulo_07_reportes / frontend/src/pages/Reportes.jsx
-// Panel Administrador — RF-18 Reportes y Auditoría
-// Diagrama de estados: Solicitado → Generando → Disponible → Descargado
-// RNF-02: interfaz legible para Administrador sin perfil técnico
+// frontend/src/pages/Reportes.jsx
+//
+// REP-001 FIX: descarga con appendChild/removeChild (fix Safari + memory leak)
+// REP-002 FIX: paginación inteligente con truncación
+// REP-003 FIX: polling de estado del reporte tras generación
+// REP-004 FIX: botón "Limpiar filtros" en panel de auditoría
+// UX-001/002 FIX: modales con Escape y aria-label (via Modal compartido)
 // ==============================================================
 
 import { useState, useEffect, useCallback } from "react";
-import { reportesService } from "../services/reportesService";
+import { reportesService, descargarBlob } from "../services/reportesService";
 
 const C = {
   cafe: "#6f3a1b", cafeCla: "#a0522d", verde: "#2d7a3a",
@@ -15,13 +18,13 @@ const C = {
 };
 
 const TIPOS_REPORTE = [
-  { v: "general",      l: "📊 Resumen general del sistema" },
-  { v: "cultivos",     l: "🌱 Cultivos y lotes de producción" },
-  { v: "trazabilidad", l: "🔗 Trazabilidad del café" },
-  { v: "fitosanitario",l: "🔬 Análisis IA fitosanitario" },
-  { v: "ambiental",    l: "🌡️ Monitoreo ambiental y suelo" },
-  { v: "mercado",      l: "💰 Precios y análisis de mercado" },
-  { v: "usuarios",     l: "👥 Usuarios del sistema" },
+  { v: "general",       l: "📊 Resumen general del sistema" },
+  { v: "cultivos",      l: "🌱 Cultivos y lotes de producción" },
+  { v: "trazabilidad",  l: "🔗 Trazabilidad del café" },
+  { v: "fitosanitario", l: "🔬 Análisis IA fitosanitario" },
+  { v: "ambiental",     l: "🌡️ Monitoreo ambiental y suelo" },
+  { v: "mercado",       l: "💰 Precios y análisis de mercado" },
+  { v: "usuarios",      l: "👥 Usuarios del sistema" },
 ];
 
 const ESTADO_BADGE = {
@@ -32,12 +35,87 @@ const ESTADO_BADGE = {
   descargado:  { bg: "#f9f3ee", color: C.cafe,      texto: "📥 Descargado" },
 };
 
+// REP-002 FIX: paginación inteligente con truncación
+function PaginacionInteligente({ paginaActual, totalPaginas, onCambiarPagina }) {
+  if (totalPaginas <= 1) return null;
+
+  const paginas = [];
+  const rango = 2; // páginas adyacentes a mostrar
+
+  for (let i = 1; i <= totalPaginas; i++) {
+    if (
+      i === 1 ||
+      i === totalPaginas ||
+      (i >= paginaActual - rango && i <= paginaActual + rango)
+    ) {
+      paginas.push(i);
+    }
+  }
+
+  // Insertar elipsis donde hay saltos
+  const items = [];
+  let anterior = null;
+  paginas.forEach(p => {
+    if (anterior !== null && p - anterior > 1) {
+      items.push("...");
+    }
+    items.push(p);
+    anterior = p;
+  });
+
+  return (
+    <div style={{ padding: "0.6rem 1rem", display: "flex", justifyContent: "center", gap: "0.4rem", borderTop: `1px solid ${C.borde}`, flexWrap: "wrap" }}>
+      <button
+        onClick={() => onCambiarPagina(paginaActual - 1)}
+        disabled={paginaActual === 1}
+        style={{ ...estiloPaginaBtn, opacity: paginaActual === 1 ? 0.4 : 1 }}
+        aria-label="Página anterior"
+      >
+        ‹
+      </button>
+      {items.map((item, i) =>
+        item === "..." ? (
+          <span key={`dots-${i}`} style={{ padding: "0.3rem 0.5rem", color: "#9a7a5a" }}>…</span>
+        ) : (
+          <button
+            key={item}
+            onClick={() => onCambiarPagina(item)}
+            aria-current={paginaActual === item ? "page" : undefined}
+            style={{
+              ...estiloPaginaBtn,
+              background: paginaActual === item ? C.cafe : "#fff",
+              color:      paginaActual === item ? "#fff" : C.cafe,
+              fontWeight: paginaActual === item ? 800 : 400,
+            }}
+          >
+            {item}
+          </button>
+        )
+      )}
+      <button
+        onClick={() => onCambiarPagina(paginaActual + 1)}
+        disabled={paginaActual === totalPaginas}
+        style={{ ...estiloPaginaBtn, opacity: paginaActual === totalPaginas ? 0.4 : 1 }}
+        aria-label="Página siguiente"
+      >
+        ›
+      </button>
+    </div>
+  );
+}
+
+const estiloPaginaBtn = {
+  padding: "0.3rem 0.7rem", borderRadius: "6px",
+  border: `1px solid ${C.borde}`, cursor: "pointer",
+  fontSize: "0.85rem", background: "#fff", color: C.cafe,
+  minWidth: "32px",
+};
+
 function Badge({ estado }) {
   const cfg = ESTADO_BADGE[estado] || { bg: "#f3f4f6", color: "#6b7280", texto: estado };
   return (
     <span style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}40`,
-      borderRadius: "20px", padding: "2px 10px", fontSize: "0.75rem", fontWeight: 700,
-      whiteSpace: "nowrap" }}>
+      borderRadius: "20px", padding: "2px 10px", fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap" }}>
       {cfg.texto}
     </span>
   );
@@ -45,30 +123,72 @@ function Badge({ estado }) {
 
 function KpiCard({ icono, titulo, valor, color }) {
   return (
-    <div style={{ background: "#fff", border: `1px solid ${C.borde}`,
-      borderRadius: "12px", padding: "1rem 1.2rem" }}>
+    <div style={{ background: "#fff", border: `1px solid ${C.borde}`, borderRadius: "12px", padding: "1rem 1.2rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "#9a7a5a" }}>{titulo}</p>
-        <span style={{ fontSize: "1.2rem" }}>{icono}</span>
+        <span style={{ fontSize: "1.2rem" }} aria-hidden="true">{icono}</span>
       </div>
-      <p style={{ margin: "0.3rem 0 0", fontSize: "1.6rem", fontWeight: 900,
-        color: color || C.cafe }}>{valor ?? "—"}</p>
+      <p style={{ margin: "0.3rem 0 0", fontSize: "1.6rem", fontWeight: 900, color: color || C.cafe }}>{valor ?? "—"}</p>
     </div>
   );
 }
 
+// REP-003 FIX: hook de polling para estado del reporte
+function usePollReporte(idReporte, onFinalizado) {
+  useEffect(() => {
+    if (!idReporte) return;
+
+    let cancelado = false;
+    let intentos  = 0;
+    const MAX_INTENTOS = 40; // ~2 minutos
+
+    const verificar = async () => {
+      if (cancelado || intentos >= MAX_INTENTOS) return;
+      intentos++;
+      try {
+        const r = await reportesService.obtenerReporte(idReporte);
+        if (r.estado === "disponible" || r.estado === "error") {
+          if (!cancelado) onFinalizado(r);
+          return;
+        }
+        setTimeout(verificar, 3000);
+      } catch {
+        setTimeout(verificar, 5000);
+      }
+    };
+
+    setTimeout(verificar, 2000); // primer check a los 2s
+    return () => { cancelado = true; };
+  }, [idReporte, onFinalizado]);
+}
+
 // ── Panel generación de reporte ───────────────────────────────
 function PanelGenerarReporte({ onGenerado }) {
-  const [tipo,    setTipo]    = useState("general");
-  const [nombre,  setNombre]  = useState("");
-  const [fi,      setFi]      = useState("");
-  const [ff,      setFf]      = useState("");
-  const [carg,    setCarg]    = useState(false);
-  const [error,   setError]   = useState("");
-  const [exito,   setExito]   = useState("");
+  const [tipo,   setTipo]   = useState("general");
+  const [nombre, setNombre] = useState("");
+  const [fi,     setFi]     = useState("");
+  const [ff,     setFf]     = useState("");
+  const [carg,   setCarg]   = useState(false);
+  const [error,  setError]  = useState("");
+  const [exito,  setExito]  = useState("");
+  const [estado, setEstado] = useState(null); // "generando" | "disponible" | "error"
+  const [idPoll, setIdPoll] = useState(null);
+
+  // REP-003 FIX: polling para reportes async
+  usePollReporte(idPoll, useCallback((reporte) => {
+    setIdPoll(null);
+    if (reporte.estado === "disponible") {
+      setEstado("disponible");
+      setExito(`✅ Reporte "${reporte.nombre}" generado y disponible para descargar.`);
+      onGenerado && onGenerado();
+    } else {
+      setEstado("error");
+      setError(`❌ Error al generar el reporte: ${reporte.error_mensaje || "desconocido"}`);
+    }
+  }, [onGenerado]));
 
   const generar = async () => {
-    setCarg(true); setError(""); setExito("");
+    setCarg(true); setError(""); setExito(""); setEstado(null);
     try {
       const payload = {
         tipo_reporte: tipo,
@@ -77,63 +197,82 @@ function PanelGenerarReporte({ onGenerado }) {
         fecha_fin:    ff ? new Date(ff).toISOString() : null,
       };
       const r = await reportesService.solicitarReporte(payload);
-      setExito(`Reporte "${r.nombre}" generado: ${r.estado_label}`);
-      onGenerado && onGenerado();
-    } catch (e) { setError(e.message); }
-    finally { setCarg(false); }
+
+      if (r.estado === "disponible") {
+        // Generación sincrónica
+        setEstado("disponible");
+        setExito(`✅ Reporte "${r.nombre}" disponible para descargar.`);
+        onGenerado && onGenerado();
+      } else {
+        // REP-003 FIX: activar polling para generación asíncrona
+        setEstado("generando");
+        setExito(`⏳ Reporte "${r.nombre}" en proceso de generación...`);
+        setIdPoll(r.id_reporte);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCarg(false);
+    }
   };
 
   return (
-    <div style={{ background: "#fff", border: `1px solid ${C.borde}`,
-      borderRadius: "14px", padding: "1.5rem" }}>
-      <h3 style={{ margin: "0 0 1rem", color: C.cafe }}>
-        📄 Generar nuevo reporte
-      </h3>
+    <div style={{ background: "#fff", border: `1px solid ${C.borde}`, borderRadius: "14px", padding: "1.5rem" }}>
+      <h3 style={{ margin: "0 0 1rem", color: C.cafe }}>📄 Generar nuevo reporte</h3>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem" }}>
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={estiloLabel}>Tipo de reporte *</label>
           <select value={tipo} onChange={e => setTipo(e.target.value)} style={estiloInput}>
-            {TIPOS_REPORTE.map(t => (
-              <option key={t.v} value={t.v}>{t.l}</option>
-            ))}
+            {TIPOS_REPORTE.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
           </select>
         </div>
-
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={estiloLabel}>Nombre del reporte (opcional)</label>
-          <input type="text" value={nombre}
-            onChange={e => setNombre(e.target.value)}
+          <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
             placeholder="Se genera automáticamente si no se especifica"
-            style={estiloInput} />
+            maxLength={200} style={estiloInput} />
         </div>
-
         <div>
           <label style={estiloLabel}>Fecha inicio (opcional)</label>
-          <input type="datetime-local" value={fi}
-            onChange={e => setFi(e.target.value)} style={estiloInput} />
+          <input type="datetime-local" value={fi} onChange={e => setFi(e.target.value)} style={estiloInput} />
         </div>
         <div>
           <label style={estiloLabel}>Fecha fin (opcional)</label>
-          <input type="datetime-local" value={ff}
-            onChange={e => setFf(e.target.value)} style={estiloInput} />
+          <input type="datetime-local" value={ff} onChange={e => setFf(e.target.value)} style={estiloInput} />
         </div>
       </div>
 
-      {error && (
-        <p style={{ margin: "0.8rem 0 0", color: C.rojo, fontSize: "0.83rem" }}>❌ {error}</p>
-      )}
+      {error && <p style={{ margin: "0.8rem 0 0", color: C.rojo, fontSize: "0.83rem" }}>{error}</p>}
       {exito && (
-        <p style={{ margin: "0.8rem 0 0", color: C.verde, fontSize: "0.83rem" }}>✅ {exito}</p>
+        <div style={{
+          margin: "0.8rem 0 0", padding: "0.7rem 1rem",
+          background: estado === "generando" ? "#fefce8" : estado === "error" ? "#fef2f2" : "#f0fdf4",
+          border: `1px solid ${estado === "generando" ? C.amarillo : estado === "error" ? C.rojo : C.verde}`,
+          borderRadius: "8px", fontSize: "0.83rem",
+          color: estado === "generando" ? "#92400e" : estado === "error" ? C.rojo : C.verde,
+          display: "flex", alignItems: "center", gap: "0.5rem",
+        }}>
+          {/* REP-003: spinner mientras genera */}
+          {estado === "generando" && (
+            <span style={{ display: "inline-block", width: "14px", height: "14px",
+              border: `2px solid ${C.amarillo}`, borderTopColor: "transparent",
+              borderRadius: "50%", animation: "spin 0.8s linear infinite",
+              flexShrink: 0 }} />
+          )}
+          {exito}
+        </div>
       )}
 
-      <button onClick={generar} disabled={carg} style={{
+      <button onClick={generar} disabled={carg || estado === "generando"} style={{
         marginTop: "1rem", padding: "0.75rem 2rem", borderRadius: "10px",
-        border: "none", background: carg ? "#c9a88a" : C.cafe,
-        color: "#fff", fontWeight: 700, cursor: carg ? "not-allowed" : "pointer",
+        border: "none",
+        background: (carg || estado === "generando") ? "#c9a88a" : C.cafe,
+        color: "#fff", fontWeight: 700,
+        cursor: (carg || estado === "generando") ? "not-allowed" : "pointer",
         fontSize: "0.92rem",
       }}>
-        {carg ? "⏳ Generando reporte..." : "📊 Generar Reporte"}
+        {carg ? "⏳ Enviando..." : estado === "generando" ? "⏳ Generando..." : "📊 Generar Reporte"}
       </button>
     </div>
   );
@@ -147,19 +286,17 @@ function TablaReportes({ reportes, onActualizar }) {
     setDesc(r.id_reporte);
     try {
       const blob = await reportesService.descargarReporte(r.id_reporte);
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href     = url;
-      // BUG-045 FIX: advertir si el reporte es JSON (modo degradado sin reportlab)
       const nombreArchivo = r.nombre_archivo || `reporte_${r.id_reporte}.pdf`;
+
+      // REP-001 FIX: advertir si es JSON en lugar de PDF (modo degradado)
       if (nombreArchivo.endsWith(".json")) {
         alert("⚠️ Advertencia: reportlab no está instalado en el servidor.\n" +
-              "El reporte se descargará como JSON en lugar de PDF.\n" +
-              "Instala reportlab en el módulo de reportes: pip install reportlab");
+              "El reporte se descargará como JSON.\n" +
+              "Instala reportlab: pip install reportlab");
       }
-      a.download = nombreArchivo;
-      a.click();
-      URL.revokeObjectURL(url);
+
+      // REP-001 FIX: usar helper con appendChild/removeChild correcto
+      descargarBlob(blob, nombreArchivo);
       onActualizar && onActualizar();
     } catch (e) { alert(e.message); }
     finally { setDesc(null); }
@@ -173,9 +310,7 @@ function TablaReportes({ reportes, onActualizar }) {
   };
 
   if (!reportes.length)
-    return <p style={{ color: "#9a7a5a", textAlign: "center", padding: "2rem" }}>
-      No hay reportes generados aún.
-    </p>;
+    return <p style={{ color: "#9a7a5a", textAlign: "center", padding: "2rem" }}>No hay reportes generados aún.</p>;
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -183,62 +318,42 @@ function TablaReportes({ reportes, onActualizar }) {
         <thead>
           <tr style={{ background: C.cafe }}>
             {["ID","Nombre","Tipo","Estado","Registros","Tamaño","Generado","Acciones"].map(h => (
-              <th key={h} style={{ padding: "0.6rem 0.8rem", color: "#fff",
-                textAlign: "left", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
+              <th key={h} style={{ padding: "0.6rem 0.8rem", color: "#fff", textAlign: "left", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {reportes.map((r, i) => (
-            <tr key={r.id_reporte} style={{
-              background: i % 2 === 0 ? "#fff" : C.gris,
-              borderBottom: `1px solid ${C.borde}`,
-            }}>
+            <tr key={r.id_reporte} style={{ background: i % 2 === 0 ? "#fff" : C.gris, borderBottom: `1px solid ${C.borde}` }}>
               <td style={estiloTd}>{r.id_reporte}</td>
-              <td style={{ ...estiloTd, maxWidth: "200px", overflow: "hidden",
-                textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.nombre}>
-                {r.nombre}
-              </td>
+              <td style={{ ...estiloTd, maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.nombre}>{r.nombre}</td>
               <td style={estiloTd}>
                 <span style={{ fontSize: "0.78rem", color: "#7a5c3a" }}>
                   {TIPOS_REPORTE.find(t => t.v === r.tipo_reporte)?.l || r.tipo_reporte}
                 </span>
               </td>
               <td style={estiloTd}><Badge estado={r.estado} /></td>
-              <td style={{ ...estiloTd, textAlign: "right" }}>
-                {r.num_registros ?? "—"}
-              </td>
-              <td style={{ ...estiloTd, textAlign: "right" }}>
-                {r.tamano_kb ? `${r.tamano_kb} KB` : "—"}
-              </td>
+              <td style={{ ...estiloTd, textAlign: "right" }}>{r.num_registros ?? "—"}</td>
+              <td style={{ ...estiloTd, textAlign: "right" }}>{r.tamano_kb ? `${r.tamano_kb} KB` : "—"}</td>
               <td style={{ ...estiloTd, whiteSpace: "nowrap", fontSize: "0.78rem" }}>
-                {r.fecha_generado
-                  ? new Date(r.fecha_generado).toLocaleString("es-CO")
-                  : "—"}
+                {r.fecha_generado ? new Date(r.fecha_generado).toLocaleString("es-CO") : "—"}
               </td>
               <td style={{ ...estiloTd, whiteSpace: "nowrap" }}>
                 {(r.estado === "disponible" || r.estado === "descargado") && (
-                  <button
-                    onClick={() => descargar(r)}
-                    disabled={descargando === r.id_reporte}
-                    style={{
-                      padding: "0.3rem 0.7rem", borderRadius: "6px",
-                      border: "none", background: C.verde, color: "#fff",
-                      fontSize: "0.75rem", fontWeight: 700,
-                      cursor: "pointer", marginRight: "4px",
-                    }}>
+                  <button onClick={() => descargar(r)} disabled={descargando === r.id_reporte}
+                    aria-label={`Descargar reporte ${r.nombre}`}
+                    style={{ padding: "0.3rem 0.7rem", borderRadius: "6px", border: "none",
+                      background: C.verde, color: "#fff", fontSize: "0.75rem", fontWeight: 700,
+                      cursor: "pointer", marginRight: "4px" }}>
                     {descargando === r.id_reporte ? "..." : "📥"}
                   </button>
                 )}
                 {r.estado === "error" && (
-                  <button
-                    aria-label="Reintentar generacion de reporte"
-                    onClick={() => reintentar(r.id_reporte)}
-                    style={{
-                      padding: "0.3rem 0.7rem", borderRadius: "6px",
-                      border: "none", background: C.amarillo, color: "#fff",
-                      fontSize: "0.75rem", fontWeight: 700, cursor: "pointer",
-                    }}>
+                  <button onClick={() => reintentar(r.id_reporte)}
+                    aria-label={`Reintentar generación del reporte ${r.nombre}`}
+                    style={{ padding: "0.3rem 0.7rem", borderRadius: "6px", border: "none",
+                      background: C.amarillo, color: "#fff", fontSize: "0.75rem",
+                      fontWeight: 700, cursor: "pointer" }}>
                     🔄
                   </button>
                 )}
@@ -252,16 +367,18 @@ function TablaReportes({ reportes, onActualizar }) {
 }
 
 // ── Panel auditoría ───────────────────────────────────────────
+
+// REP-004 FIX: filtros con botón de limpiar todo
+const FILTROS_VACÍOS = { modulo: "", accion: "", resultado: "", page: 1, page_size: 50 };
+
+const MODULOS   = ["","autenticacion","cultivos","monitoreo","ia","trazabilidad","mercado","reportes","sistema"];
+const ACCIONES  = ["","crear","leer","actualizar","eliminar","login","logout","exportar","generar_reporte","cambio_estado","error_sistema"];
+const RESULTADOS= ["","exitoso","fallido","parcial"];
+
 function PanelAuditoria() {
   const [datos,   setDatos]   = useState({ total: 0, registros: [] });
-  const [filtros, setFiltros] = useState({
-    modulo: "", accion: "", resultado: "", page: 1, page_size: 50,
-  });
-  const [carg, setCarg] = useState(false);
-
-  const MODULOS = ["","autenticacion","cultivos","monitoreo","ia","trazabilidad","mercado","reportes","sistema"];
-  const ACCIONES= ["","crear","leer","actualizar","eliminar","login","logout","exportar","generar_reporte","cambio_estado","error_sistema"];
-  const RESULTADOS=["","exitoso","fallido","parcial"];
+  const [filtros, setFiltros] = useState(FILTROS_VACÍOS);
+  const [carg,    setCarg]    = useState(false);
 
   const cargar = useCallback(async () => {
     setCarg(true);
@@ -277,15 +394,17 @@ function PanelAuditoria() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  const COLOR_RES = {
-    exitoso: C.verde, fallido: C.rojo, parcial: C.amarillo,
-  };
+  const COLOR_RES = { exitoso: C.verde, fallido: C.rojo, parcial: C.amarillo };
+
+  // REP-004 FIX: ¿hay algún filtro activo?
+  const hayFiltros = filtros.modulo !== "" || filtros.accion !== "" || filtros.resultado !== "";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       {/* Filtros */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.6rem",
-        background: "#fff", border: `1px solid ${C.borde}`, borderRadius: "12px", padding: "1rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr) auto", gap: "0.6rem",
+        background: "#fff", border: `1px solid ${C.borde}`, borderRadius: "12px", padding: "1rem",
+        alignItems: "end" }}>
         {[
           ["Módulo", "modulo", MODULOS],
           ["Acción", "accion", ACCIONES],
@@ -300,29 +419,49 @@ function PanelAuditoria() {
             </select>
           </div>
         ))}
+        {/* REP-004 FIX: botón Limpiar filtros */}
+        <div>
+          <button
+            onClick={() => setFiltros(FILTROS_VACÍOS)}
+            disabled={!hayFiltros}
+            aria-label="Limpiar todos los filtros"
+            style={{
+              padding: "0.5rem 0.9rem", borderRadius: "7px",
+              border: `1px solid ${hayFiltros ? C.cafe : C.borde}`,
+              background: hayFiltros ? "#f5f0eb" : "#fafafa",
+              color: hayFiltros ? C.cafe : "#bbb",
+              fontSize: "0.82rem", fontWeight: 600,
+              cursor: hayFiltros ? "pointer" : "not-allowed",
+              whiteSpace: "nowrap",
+            }}>
+            🧹 Limpiar
+          </button>
+        </div>
       </div>
 
       {/* Tabla */}
-      <div style={{ background: "#fff", border: `1px solid ${C.borde}`,
-        borderRadius: "12px", overflow: "hidden" }}>
-        <div style={{ padding: "0.8rem 1rem", background: C.gris,
-          borderBottom: `1px solid ${C.borde}`, display: "flex",
-          justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ background: "#fff", border: `1px solid ${C.borde}`, borderRadius: "12px", overflow: "hidden" }}>
+        <div style={{ padding: "0.8rem 1rem", background: C.gris, borderBottom: `1px solid ${C.borde}`,
+          display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <p style={{ margin: 0, fontWeight: 700, color: C.cafe, fontSize: "0.88rem" }}>
             Log de Auditoría — {datos.total} evento(s)
+            {hayFiltros && <span style={{ color: "#9a7a5a", fontWeight: 400 }}> (filtrado)</span>}
           </p>
-          <button onClick={cargar} style={{
-            padding: "0.3rem 0.8rem", borderRadius: "6px", border: "none",
-            background: C.cafe, color: "#fff", fontSize: "0.78rem",
-            fontWeight: 700, cursor: "pointer",
-          }aria-label="Actualizar lista de reportes">🔄 Actualizar</button>
+          <button onClick={cargar}
+            aria-label="Actualizar log de auditoría"
+            style={{ padding: "0.3rem 0.8rem", borderRadius: "6px", border: "none",
+              background: C.cafe, color: "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
+            🔄 Actualizar
+          </button>
         </div>
 
         {carg && <p style={{ padding: "1rem", color: "#9a7a5a" }}>Cargando...</p>}
 
         {!carg && datos.registros.length === 0 && (
           <p style={{ padding: "2rem", textAlign: "center", color: "#9a7a5a" }}>
-            Sin eventos de auditoría con los filtros aplicados.
+            {hayFiltros
+              ? "Sin eventos con los filtros aplicados."
+              : "Sin eventos de auditoría registrados."}
           </p>
         )}
 
@@ -332,9 +471,8 @@ function PanelAuditoria() {
               <thead>
                 <tr style={{ background: "#f9f3ee" }}>
                   {["ID","Fecha","Módulo","Acción","Descripción","Resultado","Usuario","IP"].map(h => (
-                    <th key={h} style={{ padding: "0.5rem 0.7rem", color: "#7a5c3a",
-                      textAlign: "left", fontWeight: 700, whiteSpace: "nowrap",
-                      borderBottom: `1px solid ${C.borde}` }}>{h}</th>
+                    <th key={h} style={{ padding: "0.5rem 0.7rem", color: "#7a5c3a", textAlign: "left",
+                      fontWeight: 700, whiteSpace: "nowrap", borderBottom: `1px solid ${C.borde}` }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -349,30 +487,26 @@ function PanelAuditoria() {
                       {new Date(ev.fecha_evento).toLocaleString("es-CO")}
                     </td>
                     <td style={estiloTd}>
-                      <code style={{ fontSize: "0.72rem", background: "#f3f4f6",
-                        padding: "1px 4px", borderRadius: "3px" }}>{ev.modulo}</code>
+                      <code style={{ fontSize: "0.72rem", background: "#f3f4f6", padding: "1px 4px", borderRadius: "3px" }}>
+                        {ev.modulo}
+                      </code>
                     </td>
                     <td style={estiloTd}>
-                      <code style={{ fontSize: "0.72rem", background: "#f3f4f6",
-                        padding: "1px 4px", borderRadius: "3px" }}>{ev.accion}</code>
+                      <code style={{ fontSize: "0.72rem", background: "#f3f4f6", padding: "1px 4px", borderRadius: "3px" }}>
+                        {ev.accion}
+                      </code>
                     </td>
-                    <td style={{ ...estiloTd, maxWidth: "250px", overflow: "hidden",
-                      textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    <td style={{ ...estiloTd, maxWidth: "250px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                       title={ev.descripcion}>
                       {ev.descripcion}
                     </td>
                     <td style={estiloTd}>
-                      <span style={{ color: COLOR_RES[ev.resultado] || "#6b7280",
-                        fontWeight: 700, fontSize: "0.75rem" }}>
+                      <span style={{ color: COLOR_RES[ev.resultado] || "#6b7280", fontWeight: 700, fontSize: "0.75rem" }}>
                         {ev.resultado}
                       </span>
                     </td>
-                    <td style={{ ...estiloTd, fontSize: "0.74rem" }}>
-                      {ev.nombre_usuario || "—"}
-                    </td>
-                    <td style={{ ...estiloTd, fontSize: "0.72rem", color: "#9a7a5a" }}>
-                      {ev.ip_origen || "—"}
-                    </td>
+                    <td style={{ ...estiloTd, fontSize: "0.74rem" }}>{ev.nombre_usuario || "—"}</td>
+                    <td style={{ ...estiloTd, fontSize: "0.72rem", color: "#9a7a5a" }}>{ev.ip_origen || "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -380,23 +514,12 @@ function PanelAuditoria() {
           </div>
         )}
 
-        {/* Paginación */}
-        {datos.total_pages > 1 && (
-          <div style={{ padding: "0.6rem 1rem", display: "flex",
-            justifyContent: "center", gap: "0.5rem",
-            borderTop: `1px solid ${C.borde}` }}>
-            {Array.from({ length: datos.total_pages }, (_, i) => i + 1).map(p => (
-              <button key={p} onClick={() => setFiltros(f => ({ ...f, page: p }))}
-                style={{
-                  padding: "0.3rem 0.7rem", borderRadius: "6px",
-                  border: `1px solid ${C.borde}`,
-                  background: filtros.page === p ? C.cafe : "#fff",
-                  color:      filtros.page === p ? "#fff" : C.cafe,
-                  fontWeight: 700, cursor: "pointer", fontSize: "0.8rem",
-                }}>{p}</button>
-            ))}
-          </div>
-        )}
+        {/* REP-002 FIX: paginación inteligente */}
+        <PaginacionInteligente
+          paginaActual={filtros.page}
+          totalPaginas={datos.total_pages || 1}
+          onCambiarPagina={(p) => setFiltros(f => ({ ...f, page: p }))}
+        />
       </div>
     </div>
   );
@@ -432,22 +555,20 @@ export default function Reportes() {
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: C.gris,
-      fontFamily: "'Segoe UI', Roboto, sans-serif", color: C.texto }}>
+    <div style={{ minHeight: "100vh", background: C.gris, fontFamily: "'Segoe UI', Roboto, sans-serif", color: C.texto }}>
+      {/* Keyframes para spinner REP-003 */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-      {/* Header */}
       <div style={{ background: C.cafe, padding: "1.2rem 2rem" }}>
         <h1 style={{ margin: 0, color: "#fff", fontSize: "1.5rem", fontWeight: 800 }}>
           📋 Reportes y Auditoría
         </h1>
         <p style={{ margin: 0, color: "#d4b896", fontSize: "0.85rem" }}>
-          RF-18 · Solo Administrador · Diagrama estados: Solicitado → Generando → Disponible → Descargado
+          RF-18 · Solo Administrador · Estados: Solicitado → Generando → Disponible → Descargado
         </p>
       </div>
 
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "1.5rem" }}>
-
-        {/* Tabs */}
         <div style={{ display: "flex", borderBottom: `2px solid ${C.borde}`, marginBottom: "1.5rem" }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
@@ -465,54 +586,48 @@ export default function Reportes() {
           <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
             {cargando && <p style={{ color: "#9a7a5a" }}>Cargando...</p>}
             {resumen && (
-              <>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.8rem" }}>
-                  <KpiCard icono="👥" titulo="Usuarios totales"    valor={resumen.total_usuarios}    color={C.azul} />
-                  <KpiCard icono="✅" titulo="Usuarios activos"    valor={resumen.usuarios_activos}  color={C.verde} />
-                  <KpiCard icono="🌱" titulo="Cultivos registrados" valor={resumen.total_cultivos}   color={C.cafeCla} />
-                  <KpiCard icono="📦" titulo="Lotes totales"        valor={resumen.total_lotes}      color={C.cafe} />
-                  <KpiCard icono="🔬" titulo="Análisis IA"          valor={resumen.total_analisis_ia} color="#7c3aed" />
-                  <KpiCard icono="📈" titulo="Análisis IA (7 días)" valor={resumen.analisis_ultima_semana} color="#7c3aed" />
-                  <KpiCard icono="⚙️" titulo="Lotes en proceso"    valor={resumen.lotes_en_proceso} color={C.amarillo} />
-                  <KpiCard icono="💼" titulo="Lotes vendidos"       valor={resumen.lotes_vendidos}   color={C.verde} />
-                  <KpiCard icono="📊" titulo="Reportes generados"   valor={resumen.reportes_generados} color={C.cafe} />
-                  <KpiCard icono="🔍" titulo="Eventos auditoría hoy" valor={resumen.eventos_auditoria_hoy} color={C.azul} />
-                  <KpiCard icono="❌" titulo="Errores (7 días)"     valor={resumen.errores_sistema_semana} color={C.rojo} />
-                  <KpiCard icono="🕐" titulo="Actualizado"
-                    valor={new Date(resumen.fecha_actualizacion).toLocaleTimeString("es-CO")}
-                    color="#9a7a5a" />
-                </div>
-              </>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.8rem" }}>
+                <KpiCard icono="👥" titulo="Usuarios totales"      valor={resumen.total_usuarios}          color={C.azul} />
+                <KpiCard icono="✅" titulo="Usuarios activos"      valor={resumen.usuarios_activos}        color={C.verde} />
+                <KpiCard icono="🌱" titulo="Cultivos registrados"  valor={resumen.total_cultivos}          color={C.cafeCla} />
+                <KpiCard icono="📦" titulo="Lotes totales"         valor={resumen.total_lotes}             color={C.cafe} />
+                <KpiCard icono="🔬" titulo="Análisis IA"           valor={resumen.total_analisis_ia}       color="#7c3aed" />
+                <KpiCard icono="📈" titulo="Análisis IA (7 días)"  valor={resumen.analisis_ultima_semana}  color="#7c3aed" />
+                <KpiCard icono="⚙️" titulo="Lotes en proceso"     valor={resumen.lotes_en_proceso}        color={C.amarillo} />
+                <KpiCard icono="💼" titulo="Lotes vendidos"        valor={resumen.lotes_vendidos}          color={C.verde} />
+                <KpiCard icono="📊" titulo="Reportes generados"    valor={resumen.reportes_generados}      color={C.cafe} />
+                <KpiCard icono="🔍" titulo="Eventos auditoría hoy" valor={resumen.eventos_auditoria_hoy}   color={C.azul} />
+                <KpiCard icono="❌" titulo="Errores (7 días)"      valor={resumen.errores_sistema_semana}  color={C.rojo} />
+                <KpiCard icono="🕐" titulo="Actualizado"
+                  valor={new Date(resumen.fecha_actualizacion).toLocaleTimeString("es-CO")}
+                  color="#9a7a5a" />
+              </div>
             )}
           </div>
         )}
 
-        {/* Generar reporte */}
         {tab === "generar" && (
           <PanelGenerarReporte onGenerado={() => { cargarDatos(); setTab("historial"); }} />
         )}
 
-        {/* Historial */}
         {tab === "historial" && (
-          <div style={{ background: "#fff", border: `1px solid ${C.borde}`,
-            borderRadius: "14px", overflow: "hidden" }}>
-            <div style={{ padding: "0.8rem 1.2rem", background: C.gris,
-              borderBottom: `1px solid ${C.borde}`, display: "flex",
-              justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#fff", border: `1px solid ${C.borde}`, borderRadius: "14px", overflow: "hidden" }}>
+            <div style={{ padding: "0.8rem 1.2rem", background: C.gris, borderBottom: `1px solid ${C.borde}`,
+              display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <p style={{ margin: 0, fontWeight: 700, color: C.cafe }}>
                 Historial de Reportes — {reportes.length} reporte(s)
               </p>
-              <button onClick={cargarDatos} style={{
-                padding: "0.3rem 0.8rem", borderRadius: "6px", border: "none",
-                background: C.cafe, color: "#fff", fontSize: "0.78rem",
-                fontWeight: 700, cursor: "pointer",
-              }aria-label="Actualizar lista de reportes">🔄 Actualizar</button>
+              <button onClick={cargarDatos}
+                aria-label="Actualizar lista de reportes"
+                style={{ padding: "0.3rem 0.8rem", borderRadius: "6px", border: "none",
+                  background: C.cafe, color: "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
+                🔄 Actualizar
+              </button>
             </div>
             <TablaReportes reportes={reportes} onActualizar={cargarDatos} />
           </div>
         )}
 
-        {/* Auditoría */}
         {tab === "auditoria" && <PanelAuditoria />}
       </div>
     </div>

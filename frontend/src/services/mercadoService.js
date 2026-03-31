@@ -1,11 +1,13 @@
 // ==============================================================
 // modulo_06_mercado / frontend/src/services/mercadoService.js
+//
+// OFF-003 FIX: timeout aumentado a 20s para conexiones 2G/Edge en campo
 // ==============================================================
 
 import { authService } from "./authService";
 
 const API_BASE   = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 20_000; // OFF-003 FIX: 20s (antes 8s)
 
 async function peticion(ruta, opciones = {}) {
   const token = authService.getAccessToken();
@@ -29,17 +31,23 @@ async function peticion(ruta, opciones = {}) {
     return res.status === 204 ? null : res.json();
   } catch (e) {
     clearTimeout(timer);
-    if (e.name === "AbortError") throw new Error("Tiempo de espera agotado.");
+    if (e.name === "AbortError") throw new Error("La conexión es lenta. Verifica tu señal e intenta de nuevo.");
     throw e;
   }
 }
 
 export const mercadoService = {
-  dashboard:          ()             => peticion("/mercado/dashboard"),
-  registrarPrecio:    (datos)        => peticion("/mercado/precios", { method: "POST", body: JSON.stringify(datos) }),
-  listarPrecios:      (fuente, meses) => peticion(`/mercado/precios?${fuente ? `fuente=${fuente}&` : ""}meses=${meses || 6}`),
-  sincronizar:        ()             => peticion("/mercado/precios/sincronizar", { method: "POST" }),
-  historialPrecios:   (meses, tipo)  => peticion(`/mercado/precios/historial?meses=${meses || 6}&tipo_cafe=${tipo || "pergamino_seco"}`),
-  analizarPrecios:    (params)       => peticion(`/mercado/precios/analisis?meses=${params.meses||6}&tipo_cafe=${params.tipo||"pergamino_seco"}&fuente_filtro=${params.fuente||"todas"}`, { method: "POST" }),
-  analizarDemanda:    (meses, obs)   => peticion(`/mercado/demanda/analisis?meses=${meses||6}`, { method: "POST", body: obs ? JSON.stringify(obs) : undefined }),
+  dashboard:        ()              => peticion("/mercado/dashboard"),
+  registrarPrecio:  (datos)         => peticion("/mercado/precios", { method: "POST", body: JSON.stringify(datos) }),
+  listarPrecios:    (fuente, meses)  => peticion(`/mercado/precios?${fuente ? `fuente=${fuente}&` : ""}meses=${meses || 6}`),
+  sincronizar:      ()              => peticion("/mercado/precios/sincronizar", { method: "POST" }),
+  historialPrecios: (meses, tipo)   => peticion(`/mercado/precios/historial?meses=${meses || 6}&tipo_cafe=${tipo || "pergamino_seco"}`),
+  analizarPrecios:  (params)        => peticion(
+    `/mercado/precios/analisis?meses=${params.meses || 6}&tipo_cafe=${params.tipo || "pergamino_seco"}&fuente_filtro=${params.fuente || "todas"}`,
+    { method: "POST" }
+  ),
+  analizarDemanda: (meses, obs)    => peticion(
+    `/mercado/demanda/analisis?meses=${meses || 6}`,
+    { method: "POST", body: obs ? JSON.stringify(obs) : undefined }
+  ),
 };
