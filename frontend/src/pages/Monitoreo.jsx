@@ -204,9 +204,12 @@ function estadoPH(v) {
 // ==============================================================
 
 export default function Monitoreo() {
-  // En produccion, cultivoId vendria del contexto de navegacion
-  const cultivoId    = 1;
-  const cultivoNombre = localStorage.getItem("cultivo_nombre") || "Mi Cultivo";
+  // BUG-011 FIX: leer cultivoId desde sessionStorage en lugar de hardcodearlo.
+  // Cultivos.jsx escribe "gv_cultivo_activo" al seleccionar un cultivo.
+  const cultivoId    = sessionStorage.getItem("gv_cultivo_activo")
+    ? parseInt(sessionStorage.getItem("gv_cultivo_activo"), 10)
+    : null;
+  const cultivoNombre = sessionStorage.getItem("gv_cultivo_nombre") || "Mi Cultivo";
 
   const { resumen, validez, cargando, error, recargar } = useMonitoreo(cultivoId, 60);
   const { historial: histAmb, recargar: recargarAmb }   = useHistorialAmbiental(cultivoId, 15);
@@ -241,6 +244,14 @@ export default function Monitoreo() {
     );
   }
 
+  if (!cultivoId) return (
+    <div style={{ padding: "2rem", textAlign: "center", color: "#6f3a1b" }}>
+      <p style={{ fontSize: "1.1rem", fontWeight: 600 }}>⚠️ No hay cultivo seleccionado</p>
+      <p style={{ color: "#9a7a5a" }}>
+        Ve al módulo <strong>Cultivos</strong> y selecciona un cultivo para continuar.
+      </p>
+    </div>
+  );
   return (
     <div style={estilos.contenedor}>
 

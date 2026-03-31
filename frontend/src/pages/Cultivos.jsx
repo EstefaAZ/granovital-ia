@@ -231,6 +231,7 @@ function FormularioLote({ onGuardar, onCancelar }) {
   const [form, setForm] = useState({
     codigo_lote:   "",
     cantidad_kg:   "",
+    fecha_cosecha: "",
     observaciones: "",
   });
 
@@ -242,6 +243,8 @@ function FormularioLote({ onGuardar, onCancelar }) {
       ...form,
       codigo_lote: form.codigo_lote.toUpperCase(),
       cantidad_kg: form.cantidad_kg ? parseFloat(form.cantidad_kg) : undefined,
+      // BUG-026 FIX: enviar fecha como string YYYY-MM-DD sin conversión UTC
+      fecha_cosecha: form.fecha_cosecha || undefined,
     });
   };
 
@@ -251,6 +254,8 @@ function FormularioLote({ onGuardar, onCancelar }) {
         onChange={cambio} required placeholder="Ej: LOT-2025-001" />
       <Campo label="Cantidad cosechada (kg)" name="cantidad_kg" value={form.cantidad_kg}
         onChange={cambio} type="number" placeholder="Ej: 450" />
+      <Campo label="Fecha de cosecha" name="fecha_cosecha" value={form.fecha_cosecha}
+        onChange={cambio} type="date" />
       <Campo label="Observaciones" name="observaciones" value={form.observaciones}
         onChange={cambio} placeholder="Notas sobre la cosecha" />
       <div style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
@@ -290,6 +295,9 @@ export default function Cultivos() {
       setCultivos(cvs);
       if (cvs.length > 0 && !cultivoActivo) {
         setCultivoActivo(cvs[0]);
+        // BUG-011 FIX: persistir cultivo activo para IA y Monitoreo
+        sessionStorage.setItem("gv_cultivo_activo", cvs[0].id_cultivo);
+        sessionStorage.setItem("gv_cultivo_nombre", cvs[0].nombre_cultivo);
         const ls = await loteService.listar(cvs[0].id_cultivo);
         setLotes(ls);
       }
@@ -304,6 +312,9 @@ export default function Cultivos() {
 
   const seleccionarCultivo = async (cultivo) => {
     setCultivoActivo(cultivo);
+    // BUG-011 FIX: persistir cultivo activo para IA y Monitoreo
+    sessionStorage.setItem("gv_cultivo_activo", cultivo.id_cultivo);
+    sessionStorage.setItem("gv_cultivo_nombre", cultivo.nombre_cultivo);
     const ls = await loteService.listar(cultivo.id_cultivo).catch(() => []);
     setLotes(ls);
   };

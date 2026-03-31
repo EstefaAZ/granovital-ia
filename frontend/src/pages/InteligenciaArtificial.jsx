@@ -272,7 +272,15 @@ function PanelImagen({ tipo, cultivoId, onResultado }) {
 // ── Componente principal ─────────────────────────────────────
 
 export default function InteligenciaArtificial() {
-  const cultivoId = 1;
+  // BUG-011 FIX: leer cultivoId desde sessionStorage en lugar de hardcodearlo.
+  // Cultivos.jsx escribe "gv_cultivo_activo" al seleccionar un cultivo.
+  const [cultivoId,  setCultivoId]  = useState(() => {
+    const stored = sessionStorage.getItem("gv_cultivo_activo");
+    return stored ? parseInt(stored, 10) : null;
+  });
+  const [cultivoNombre, setCultivoNombre] = useState(
+    () => sessionStorage.getItem("gv_cultivo_nombre") || ""
+  );
   const [resumen,  setResumen]  = useState(null);
   const [cargando, setCargando] = useState(true);
 
@@ -373,6 +381,14 @@ export default function InteligenciaArtificial() {
     </div>
   );
 
+  if (!cultivoId) return (
+    <div style={{ padding: "2rem", textAlign: "center", color: "#6f3a1b" }}>
+      <p style={{ fontSize: "1.1rem", fontWeight: 600 }}>⚠️ No hay cultivo seleccionado</p>
+      <p style={{ color: "#9a7a5a" }}>
+        Ve al módulo <strong>Cultivos</strong> y selecciona un cultivo para continuar.
+      </p>
+    </div>
+  );
   if (cargando) return (
     <div style={estilos.contenedor}>
       <p style={{ textAlign:"center", color:C.cafeCla, padding:"3rem" }}>
@@ -398,7 +414,7 @@ export default function InteligenciaArtificial() {
           <h1 style={{ margin:0, fontSize:"1.8rem", fontWeight:800, color:C.cafe }}>
             🤖 Inteligencia Artificial
           </h1>
-          <p style={{ margin:0, color:"#7a5c3a" }}>GranoVital IA — Cultivo #{cultivoId}</p>
+          <p style={{ margin:0, color:"#7a5c3a" }}>GranoVital IA — {cultivoNombre || `Cultivo #${cultivoId}`}</p>
         </div>
       </div>
 

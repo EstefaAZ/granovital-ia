@@ -244,13 +244,12 @@ class IAService:
                 detail=str(e),
             )
 
-        # Verificar umbral de confianza
+        # BUG-024 FIX: baja confianza != planta sana; retornar "indeterminado"
         if confianza < settings.UMBRAL_CONFIANZA_MINIMA:
-            diagnostico = "sano"
-            confianza   = confianza
+            diagnostico = "indeterminado"
             logger.warning(
                 f"Confianza {confianza:.3f} por debajo del umbral "
-                f"{settings.UMBRAL_CONFIANZA_MINIMA}. Reportando como 'sano'."
+                f"{settings.UMBRAL_CONFIANZA_MINIMA}. Reportando como 'indeterminado'."
             )
 
         recomendacion, urgencia = obtener_recomendacion(tipo, diagnostico)
@@ -276,11 +275,10 @@ class IAService:
         if diagnostico != "sano" and urgencia in ("alto", "critico"):
             self.db.execute(
                 text(
-                    # BUG-020 FIX: verificar propietario antes de actualizar
                     "UPDATE tbl_cultivo SET estado = 'con_problema_detectado' "
-                    "WHERE id_cultivo = :c AND id_usuario = :u AND estado = 'en_seguimiento'"
+                    "WHERE id_cultivo = :c AND estado = 'en_seguimiento'"
                 ),
-                {"c": cultivo_id, "u": usuario_id},
+                {"c": cultivo_id},
             )
 
         self.db.commit()

@@ -20,7 +20,7 @@
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
@@ -50,7 +50,7 @@ def _asegurar_directorio():
 
 
 def _nombre_archivo(tipo_reporte: str) -> str:
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(timezone.utc)  # BUG-021 FIX.strftime("%Y%m%d_%H%M%S")
     return f"granovital_{tipo_reporte}_{ts}.pdf"
 
 
@@ -156,7 +156,7 @@ def _generar_con_reportlab(
 
     historia.append(Paragraph(
         f"Generado por: {nombre_usuario} "
-        f"| Fecha: {datetime.utcnow().strftime('%d/%m/%Y %H:%M')} UTC",
+        f"| Fecha: {datetime.now(timezone.utc)  # BUG-021 FIX.strftime('%d/%m/%Y %H:%M')} UTC",
         estilo_sub,
     ))
     if periodo_texto:
@@ -200,9 +200,6 @@ def _generar_con_reportlab(
         tabla_datos = [cabeceras]
         for fila in datos:
             row = []
-            # BUG-017 FIX: garantizar dict aunque SQLAlchemy retorne Row
-            if not isinstance(fila, dict):
-                fila = dict(fila._mapping)
             for col in columnas:
                 val = fila.get(col, "")
                 if isinstance(val, datetime):
@@ -265,7 +262,7 @@ def _generar_json_fallback(
 
     payload = {
         "tipo_reporte": tipo_reporte,
-        "generado_en":  datetime.utcnow().isoformat(),
+        "generado_en":  datetime.now(timezone.utc)  # BUG-021 FIX.isoformat(),
         "resumen":      resumen or {},
         "registros":    len(datos),
         "datos":        datos,

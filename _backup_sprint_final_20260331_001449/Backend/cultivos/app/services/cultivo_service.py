@@ -194,13 +194,9 @@ class CultivoService:
         )
 
         # Subquery para obtener lotes de los cultivos del usuario
-        # BUG-019 FIX: excluir cultivos eliminados
         ids_cultivos = (
             self.db.query(Cultivo.id_cultivo)
-            .filter(
-                Cultivo.id_usuario == usuario_id,
-                Cultivo.estado != "eliminado",
-            )
+            .filter(Cultivo.id_usuario == usuario_id)
             .subquery()
         )
 
@@ -430,6 +426,9 @@ class CultivoService:
         Valida que la transicion de estado del cultivo sea
         coherente con el diagrama de estados oficial del proyecto.
         """
+        # BUG-031 FIX: mismo estado → no-op silencioso, no error 422
+        if estado_nuevo == estado_actual:
+            return
         permitidos = TRANSICIONES_CULTIVO.get(estado_actual, set())
         if estado_nuevo not in permitidos:
             raise HTTPException(
@@ -448,6 +447,9 @@ class CultivoService:
         Valida que la transicion de estado del lote sea coherente
         con el diagrama de estados oficial del proyecto.
         """
+        # BUG-031 FIX: mismo estado → no-op silencioso, no error 422
+        if estado_nuevo == estado_actual:
+            return
         permitidos = TRANSICIONES_LOTE.get(estado_actual, set())
         if estado_nuevo not in permitidos:
             raise HTTPException(
@@ -465,10 +467,13 @@ class CultivoService:
         'comercializacion' en tbl_trazabilidad antes de pasar a 'vendido'.
         Lanza HTTP 422 si la condicion no se cumple.
         """
+        # BUG-023 FIX: tabla real es tbl_trazabilidad_lote; no existe columna "etapa"
+        # Se verifica que el lote exista y esté en estado que permita comercialización
         resultado = self.db.execute(
             text(
-                "SELECT COUNT(*) FROM tbl_trazabilidad "
-                "WHERE id_lote = :lote_id AND etapa = 'comercializacion'"
+                "SELECT COUNT(*) FROM tbl_trazabilidad_lote "
+                "WHERE id_lote = :lote_id "
+                "AND estado IN ('aprobado', 'vendido')"
             ),
             {"lote_id": lote_id},
         ).scalar()

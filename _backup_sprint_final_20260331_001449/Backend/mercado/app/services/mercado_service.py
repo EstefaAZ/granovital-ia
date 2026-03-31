@@ -563,9 +563,8 @@ class MercadoService:
                         COUNT(*)                          AS total_lotes,
                         COALESCE(SUM(kg_pergamino_seco), 0) AS kg_totales,
                         AVG(kg_pergamino_seco)            AS kg_prom,
-                        -- BUG-010 FIX: columnas verificadas contra modelo TrazabilidadLote
                         AVG(DATEDIFF(fecha_venta,
-                            COALESCE(fecha_fin_secado, fecha_registro)))
+                            COALESCE(fecha_fin_secado, fecha_creacion)))
                                                           AS dias_prom_venta
                     FROM tbl_trazabilidad_lote
                     WHERE estado = 'vendido'

@@ -4,7 +4,7 @@
 # Trazabilidad: RF-01, RF-16, RF-17 | RN-01 | RNF-04
 # =============================================================
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, String, DateTime, Enum,
     ForeignKey, Text, UniqueConstraint
@@ -24,7 +24,7 @@ class Rol(Base):
     id_rol        = Column(Integer, primary_key=True, autoincrement=True)
     nombre_rol    = Column(String(50), nullable=False, unique=True)
     descripcion   = Column(String(150), nullable=True)
-    fecha_creacion = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_creacion = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)  # BUG-021 FIX)
 
     # Relaciones
     usuarios   = relationship("Usuario", back_populates="rol")
@@ -87,7 +87,7 @@ class Usuario(Base):
     correo         = Column(String(150), nullable=False, unique=True)
     contrasena     = Column(String(255), nullable=False, comment="Hash bcrypt — nunca texto plano")
     telefono       = Column(String(20), nullable=True)
-    fecha_registro = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_registro = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)  # BUG-021 FIX)
     estado_cuenta  = Column(
         Enum("activo", "inactivo", "suspendido"),
         nullable=False,
@@ -95,11 +95,8 @@ class Usuario(Base):
     )
     intentos_fallidos = Column(Integer, nullable=False, default=0,
                                comment="Contador de intentos de login fallidos")
-    ultimo_acceso     = Column(DateTime, nullable=True,
-                               comment="Fecha del último login exitoso")
-    # BUG-015 FIX: timestamp para liberar bloqueo automático
-    fecha_suspension  = Column(DateTime, nullable=True,
-                               comment="Momento de suspensión — se libera tras LOGIN_LOCKOUT_MINUTES")
+    ultimo_acceso  = Column(DateTime, nullable=True,
+                            comment="Fecha del último login exitoso")
     id_rol         = Column(Integer, ForeignKey("tbl_rol.id_rol"), nullable=False)
 
     # Relaciones
