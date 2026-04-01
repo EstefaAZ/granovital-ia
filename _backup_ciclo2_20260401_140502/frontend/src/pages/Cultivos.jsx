@@ -231,7 +231,6 @@ function FormularioLote({ onGuardar, onCancelar }) {
   const [form, setForm] = useState({
     codigo_lote:   "",
     cantidad_kg:   "",
-    fecha_cosecha: "",  // F-C03 FIX
     observaciones: "",
   });
 
@@ -241,12 +240,8 @@ function FormularioLote({ onGuardar, onCancelar }) {
     e.preventDefault();
     onGuardar({
       ...form,
-      codigo_lote:   form.codigo_lote.toUpperCase(),
-      cantidad_kg:   form.cantidad_kg ? parseFloat(form.cantidad_kg) : undefined,
-      // F-C03 FIX: enviar fecha como ISO con T12:00:00 para evitar desfase UTC (BUG-033)
-      fecha_cosecha: form.fecha_cosecha
-        ? new Date(form.fecha_cosecha + "T12:00:00").toISOString()
-        : undefined,
+      codigo_lote: form.codigo_lote.toUpperCase(),
+      cantidad_kg: form.cantidad_kg ? parseFloat(form.cantidad_kg) : undefined,
     });
   };
 
@@ -256,8 +251,6 @@ function FormularioLote({ onGuardar, onCancelar }) {
         onChange={cambio} required placeholder="Ej: LOT-2025-001" />
       <Campo label="Cantidad cosechada (kg)" name="cantidad_kg" value={form.cantidad_kg}
         onChange={cambio} type="number" placeholder="Ej: 450" />
-      <Campo label="Fecha de cosecha" name="fecha_cosecha" value={form.fecha_cosecha}
-        onChange={cambio} type="date" required />
       <Campo label="Observaciones" name="observaciones" value={form.observaciones}
         onChange={cambio} placeholder="Notas sobre la cosecha" />
       <div style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
@@ -275,6 +268,8 @@ function FormularioLote({ onGuardar, onCancelar }) {
 export default function Cultivos() {
   const [resumen,        setResumen]        = useState(null);
   const [cultivos,       setCultivos]       = useState([]);
+  const [busqueda,       setBusqueda]       = useState("");     // F-C09
+  const [filtroEstado,   setFiltroEstado]   = useState("todos"); // F-C09
   const [lotes,          setLotes]          = useState([]);
   const [cultivoActivo,  setCultivoActivo]  = useState(null);
   const [cargando,       setCargando]       = useState(true);
@@ -297,8 +292,6 @@ export default function Cultivos() {
       setCultivos(cvs);
       if (cvs.length > 0 && !cultivoActivo) {
         setCultivoActivo(cvs[0]);
-        sessionStorage.setItem("gv_cultivo_id",     String(cvs[0].id_cultivo));
-        sessionStorage.setItem("gv_cultivo_nombre", cvs[0].nombre_cultivo);
         const ls = await loteService.listar(cvs[0].id_cultivo);
         setLotes(ls);
       }
@@ -311,11 +304,17 @@ export default function Cultivos() {
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
+  // F-C09 FIX: cultivos filtrados por búsqueda y estado
+  const cultivosFiltrados = cultivos.filter(c => {
+    const matchNombre = c.nombre_cultivo.toLowerCase().includes(busqueda.toLowerCase());
+    const matchEstado = filtroEstado === "todos" || c.estado === filtroEstado;
+    return matchNombre && matchEstado;
+  });
+
   const seleccionarCultivo = async (cultivo) => {
+    // F-C07 FIX: no permitir seleccionar cultivos eliminados o cosechados
+    if (["eliminado", "finalizado"].includes(cultivo.estado)) return;
     setCultivoActivo(cultivo);
-    // F-C01 FIX: persistir en sessionStorage para que IA y Monitoreo lo lean
-    sessionStorage.setItem("gv_cultivo_id",     String(cultivo.id_cultivo));
-    sessionStorage.setItem("gv_cultivo_nombre", cultivo.nombre_cultivo);
     const ls = await loteService.listar(cultivo.id_cultivo).catch(() => []);
     setLotes(ls);
   };
@@ -407,7 +406,34 @@ export default function Cultivos() {
               Aun no tienes cultivos registrados.
             </p>
           ) : (
-            cultivos.map(c => (
+            {/* F-C09 FIX: búsqueda y filtro */}
+            <div style={{ marginBottom: "0.8rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <input
+                type="text"
+                placeholder="Buscar cultivo..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                style={{ flex: 1, minWidth: "120px", padding: "0.4rem 0.7rem",
+                  border: `1px solid ${COLOR.borde}`, borderRadius: "8px",
+                  fontSize: "0.83rem" }}
+              />
+              <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
+                style={{ padding: "0.4rem 0.7rem", border: `1px solid ${COLOR.borde}`,
+                  borderRadius: "8px", fontSize: "0.83rem", background: "#fff" }}>
+                <option value="todos">Todos los estados</option>
+                <option value="creado">Creado</option>
+                <option value="en_seguimiento">En seguimiento</option>
+                <option value="con_problema_detectado">Con problema</option>
+                <option value="finalizado">Finalizado</option>
+                <option value="eliminado">Eliminado</option>
+              </select>
+            </div>
+            {cultivosFiltrados.length === 0 && busqueda && (
+              <p style={{ color: "#9a7a5a", fontSize: "0.83rem", padding: "0.5rem" }}>
+                Sin resultados para "{busqueda}"
+              </p>
+            )}
+            {cultivosFiltrados.map(c => (
               <div
                 key={c.id_cultivo}
                 onClick={() => seleccionarCultivo(c)}
@@ -417,6 +443,9 @@ export default function Cultivos() {
                     ? COLOR.cafe : COLOR.borde,
                   background: cultivoActivo?.id_cultivo === c.id_cultivo
                     ? "#f9f3ee" : "#fff",
+                  // F-C07 FIX: atenuar cultivos no seleccionables
+                  opacity: ["eliminado","finalizado"].includes(c.estado) ? 0.45 : 1,
+                  cursor: ["eliminado","finalizado"].includes(c.estado) ? "not-allowed" : "pointer",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.4rem" }}>

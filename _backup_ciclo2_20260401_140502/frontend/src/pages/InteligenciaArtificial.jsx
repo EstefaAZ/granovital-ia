@@ -88,10 +88,7 @@ function BannerRN03({ validez }) {
                : "Datos desactualizados — IA limitada (RN-03)"}
         </p>
         <p style={{ margin:"0.2rem 0 0", fontSize:"0.83rem", color:"#7a5c3a" }}>
-          {/* F-M05 FIX: mensaje amigable con instrucción accionable */}
-          {validez.datos_validos_rn03
-            ? validez.mensaje_rn03
-            : "Tus datos de monitoreo están desactualizados. Registra una nueva lectura en Monitoreo para activar la IA."}
+          {validez.mensaje_rn03}
         </p>
       </div>
     </div>
@@ -160,6 +157,16 @@ function PanelImagen({ tipo, cultivoId, onResultado }) {
   const seleccionar = (e) => {
     const f = e.target.files[0];
     if (!f) return;
+    // F-I05 FIX: validar tipo y tamaño antes de enviar
+    const tiposPermitidos = ["image/jpeg", "image/png", "image/webp"];
+    if (!tiposPermitidos.includes(f.type)) {
+      setError("Solo se aceptan fotos en formato JPG, PNG o WEBP.");
+      return;
+    }
+    if (f.size > 10 * 1024 * 1024) {
+      setError("La foto es demasiado grande. El máximo es 10 MB.");
+      return;
+    }
     setArchivo(f);
     setPreview(URL.createObjectURL(f));
     setResultado(null);
@@ -236,17 +243,6 @@ function PanelImagen({ tipo, cultivoId, onResultado }) {
         }}>{error}</div>
       )}
 
-      {resultado && resultado.modo_simulado && (
-        <div style={{
-          background:"#c0392b", color:"#fff",
-          padding:"8px 12px", borderRadius:"8px",
-          fontWeight:700, fontSize:"0.85rem",
-          marginBottom:"4px",
-        }}>
-          ⚠️ MODO DEMOSTRACIÓN: este diagnóstico es simulado y NO refleja la imagen real.
-        </div>
-      )}
-
       {resultado && col && (
         <div style={{
           background:col.bg, border:`2px solid ${col.borde}`,
@@ -286,9 +282,7 @@ function PanelImagen({ tipo, cultivoId, onResultado }) {
 // ── Componente principal ─────────────────────────────────────
 
 export default function InteligenciaArtificial() {
-  // F-C01 FIX: leer cultivoId de sessionStorage (escrito por Cultivos.jsx al seleccionar)
-  const cultivoId     = parseInt(sessionStorage.getItem("gv_cultivo_id") || "1", 10);
-  const cultivoNombre = sessionStorage.getItem("gv_cultivo_nombre") || "Mi Cultivo";
+  const cultivoId = 1;
   const [resumen,  setResumen]  = useState(null);
   const [cargando, setCargando] = useState(true);
 
@@ -303,7 +297,9 @@ export default function InteligenciaArtificial() {
   const [errR,    setErrR]    = useState("");
   const [errFe,   setErrFe]   = useState("");
 
-  const [tabActiva, setTabActiva] = useState("enfermedades");
+  const [tabActiva,  setTabActiva]  = useState("enfermedades");
+  const [historial,  setHistorial]  = useState([]);   // F-I04
+  const [loadHist,   setLoadHist]   = useState(false);
 
   useEffect(() => {
     iaService.resumen(cultivoId)
@@ -314,6 +310,13 @@ export default function InteligenciaArtificial() {
 
   const ejecutarFito = async () => {
     setLoadF(true); setErrF("");
+    // F-I04: cargar historial al entrar al tab
+    if (tabActiva === "historial" && cultivoId) {
+      setLoadHist(true);
+      try { setHistorial((await iaService.historial(cultivoId)) || []); }
+      catch(_) {}
+      finally { setLoadHist(false); }
+    }
     try { setFito(await iaService.predecirFitosanitario(cultivoId)); }
     catch(e) { setErrF(e.message); }
     finally { setLoadF(false); }
@@ -342,12 +345,19 @@ export default function InteligenciaArtificial() {
         <strong>{fito.nivel_riesgo.toUpperCase()}</strong> — {fito.probabilidad_pct}
       </p>
       {fito.factores_riesgo.map((f, i) => (
-        <p key={i} style={{ margin:"0.15rem 0", fontSize:"0.82rem", color:"#7a5c3a" }}>
-          · {f}
-        </p>
+        <p key={i} style={{ margin:"0.15rem 0", fontSize:"0.82rem", color:"#7a5c3a" }}>· {f}</p>
       ))}
+      {/* F-I03 FIX: mostrar qué datos de monitoreo usó la predicción */}
+      {(fito.temperatura_usada != null || fito.humedad_usada != null) && (
+        <p style={{ margin:"0.6rem 0 0", fontSize:"0.78rem", color:"#9a7a5a",
+          background:"#f5f0eb", padding:"0.4rem 0.7rem", borderRadius:"6px" }}>
+          📊 Datos usados: Temp {fito.temperatura_usada?.toFixed(1)}°C
+          {fito.humedad_usada != null && ` · Humedad ${fito.humedad_usada?.toFixed(0)}%`}
+          {fito.precipitacion_usada != null && ` · Lluvia ${fito.precipitacion_usada?.toFixed(0)} mm`}
+        </p>
+      )}
       <hr style={{ border:"none", borderTop:`1px solid ${C.borde}`, margin:"0.8rem 0" }} />
-      <p style={{ margin:0 }}><strong>Recomendacion:</strong><br />{fito.recomendacion}</p>
+      <p style={{ margin:0 }}><strong>Recomendación:</strong><br />{fito.recomendacion}</p>
     </div>
   );
 
@@ -389,21 +399,23 @@ export default function InteligenciaArtificial() {
     </div>
   );
 
-  if (!cultivoId || cultivoId === 1 && !sessionStorage.getItem("gv_cultivo_id")) return (
-    <div style={{ padding:"2rem", textAlign:"center", color:"#6f3a1b" }}>
-      <p style={{ fontSize:"1.1rem", fontWeight:600 }}>⚠️ No hay cultivo seleccionado</p>
-      <p style={{ color:"#9a7a5a" }}>Ve al módulo <strong>Cultivos</strong> y selecciona un cultivo para continuar.</p>
-    </div>
-  );
   if (cargando) return (
     <div style={estilos.contenedor}>
       <p style={{ textAlign:"center", color:C.cafeCla, padding:"3rem" }}>
-        Cargando módulo de IA...
+        Cargando modulo de IA...
       </p>
     </div>
   );
 
   // ── Render principal ───────────────────────────────────────
+  // F-I04: watch tab changes to load historial
+  useEffect(() => {
+    if (tabActiva === "historial" && cultivoId) {
+      setLoadHist(true);
+      iaService.historial(cultivoId).then(h => setHistorial(h || [])).catch(()=>{}).finally(()=>setLoadHist(false));
+    }
+  }, [tabActiva, cultivoId]);
+
   const TABS = [
     { id:"enfermedades",   label:"🍃 Enfermedades" },
     { id:"plagas",         label:"🐛 Plagas"        },
@@ -420,7 +432,7 @@ export default function InteligenciaArtificial() {
           <h1 style={{ margin:0, fontSize:"1.8rem", fontWeight:800, color:C.cafe }}>
             🤖 Inteligencia Artificial
           </h1>
-          <p style={{ margin:0, color:"#7a5c3a" }}>🌱 {cultivoNombre || `Cultivo #${cultivoId}`}</p>
+          <p style={{ margin:0, color:"#7a5c3a" }}>GranoVital IA — Cultivo #{cultivoId}</p>
         </div>
       </div>
 
@@ -525,6 +537,47 @@ export default function InteligenciaArtificial() {
             onAccion={ejecutarFert}
             textoAccion="Generar plan de fertilizacion"
           />
+        )}
+
+        {/* F-I04 FIX: historial de análisis del cultivo */}
+        {tabActiva === "historial" && (
+          <div>
+            <p style={{ color:"#7a5c3a", fontSize:"0.88rem", marginBottom:"1rem" }}>
+              Análisis de imagen realizados sobre este cultivo (CP-07).
+            </p>
+            {loadHist ? (
+              <p style={{ color:"#9a7a5a" }}>Cargando historial...</p>
+            ) : historial.length === 0 ? (
+              <p style={{ color:"#9a7a5a" }}>No hay análisis registrados para este cultivo.</p>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:"0.6rem" }}>
+                {historial.map(h => (
+                  <div key={h.id_analisis} style={{
+                    background:"#fff", border:`1px solid ${C.borde}`,
+                    borderRadius:"10px", padding:"0.8rem 1rem",
+                    display:"flex", justifyContent:"space-between", alignItems:"center",
+                  }}>
+                    <div>
+                      <p style={{ margin:0, fontWeight:700, color:C.cafe, fontSize:"0.88rem" }}>
+                        {h.tipo_analisis === "enfermedad" ? "🍃" : "🐛"} {h.diagnostico}
+                      </p>
+                      <p style={{ margin:"0.15rem 0 0", fontSize:"0.75rem", color:"#9a7a5a" }}>
+                        {new Date(h.fecha_analisis).toLocaleString("es-CO")} · Confianza: {(h.confianza*100).toFixed(0)}%
+                      </p>
+                    </div>
+                    <span style={{
+                      fontSize:"0.72rem", padding:"3px 10px", borderRadius:"999px", fontWeight:700,
+                      background: h.nivel_urgencia==="alto"||h.nivel_urgencia==="critico" ? "#fff1f0" : "#f0fdf4",
+                      color: h.nivel_urgencia==="alto"||h.nivel_urgencia==="critico" ? C.rojo : C.verde,
+                      border:`1px solid ${h.nivel_urgencia==="alto"||h.nivel_urgencia==="critico" ? C.rojo : C.verde}`,
+                    }}>
+                      {h.nivel_urgencia?.toUpperCase()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

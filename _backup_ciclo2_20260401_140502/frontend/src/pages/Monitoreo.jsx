@@ -59,6 +59,21 @@ function Modal({ abierto, titulo, onCerrar, children }) {
   );
 }
 
+// F-M06 FIX: badge de origen del dato (IoT vs manual)
+function BadgeOrigen({ origen }) {
+  const esIot = origen === "sensor_iot" || origen === "mqtt";
+  return (
+    <span style={{
+      fontSize: "0.68rem", padding: "2px 7px", borderRadius: "999px", fontWeight: 600,
+      background: esIot ? "#e0f2fe" : "#f0fdf4",
+      color: esIot ? "#0369a1" : "#15803d",
+      border: `1px solid ${esIot ? "#7dd3fc" : "#86efac"}`,
+    }}>
+      {esIot ? "📡 IoT" : "✏️ Manual"}
+    </span>
+  );
+}
+
 function TarjetaMetrica({ icono, etiqueta, valor, unidad, estado = "normal" }) {
   const colores = {
     normal:   { bg: "#fff",     borde: COLOR.borde,   texto: COLOR.cafe  },
@@ -204,9 +219,9 @@ function estadoPH(v) {
 // ==============================================================
 
 export default function Monitoreo() {
-  // F-C01 + N-002 FIX: leer de sessionStorage (escrito por Cultivos.jsx al seleccionar)
-  const cultivoId     = parseInt(sessionStorage.getItem("gv_cultivo_id") || "1", 10);
-  const cultivoNombre = sessionStorage.getItem("gv_cultivo_nombre") || "Mi Cultivo";
+  // En produccion, cultivoId vendria del contexto de navegacion
+  const cultivoId    = 1;
+  const cultivoNombre = localStorage.getItem("cultivo_nombre") || "Mi Cultivo";
 
   const { resumen, validez, cargando, error, recargar } = useMonitoreo(cultivoId, 60);
   const { historial: histAmb, recargar: recargarAmb }   = useHistorialAmbiental(cultivoId, 15);

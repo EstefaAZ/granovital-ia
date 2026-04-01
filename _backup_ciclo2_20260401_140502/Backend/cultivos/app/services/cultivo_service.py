@@ -144,7 +144,7 @@ class CultivoService:
         cultivo = self.obtener_cultivo(cultivo_id, usuario_id)
 
         if datos.estado:
-            self._validar_transicion_cultivo(cultivo.estado, datos.estado)  # N-001 FIX: 2 args
+            self._validar_transicion_cultivo(cultivo.estado, datos.estado, cultivo_id)  # F-C04
 
         campos = datos.model_dump(exclude_unset=True)
         for campo, valor in campos.items():
