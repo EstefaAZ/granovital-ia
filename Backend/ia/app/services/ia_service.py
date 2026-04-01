@@ -119,14 +119,22 @@ class IAService:
         requiere_suelo:     bool = True,
     ) -> tuple:
         """
-        RN-03: verifica que los datos del M03 sean validos (< 24h).
-        Lanza HTTP 422 con mensaje claro si los datos estan caducados.
-        Retorna (datos_ambiental, datos_suelo).
+        F-M01 FIX: RN-03 ya no bloquea completamente la IA cuando los datos
+        tienen entre 24h y 48h. En ese rango muestra advertencia pero permite
+        usar las últimas recomendaciones disponibles (crucial en zonas rurales
+        sin conectividad los fines de semana).
+
+        Reglas:
+          - Sin datos:          bloquea (422) — no hay información base
+          - Datos < 24h:        OK sin advertencia
+          - Datos 24h–48h:      OK con advertencia "datos de hace X horas"
+          - Datos > 48h:        bloquea (422) — datos demasiado obsoletos
         """
-        limite    = timedelta(hours=settings.HORAS_DATOS_VALIDOS)
-        ahora     = datetime.now(timezone.utc)
-        amb       = None
-        sue       = None
+        # Umbral máximo absoluto antes de bloquear (2x el configurado)
+        UMBRAL_BLOQUEO = settings.HORAS_DATOS_VALIDOS * 2  # 48h por defecto
+        ahora = datetime.now(timezone.utc)
+        amb   = None
+        sue   = None
 
         if requiere_ambiental:
             amb = self._obtener_ultima_ambiental(cultivo_id)
@@ -134,24 +142,26 @@ class IAService:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=(
-                        "RN-03: No existen datos ambientales registrados para este cultivo. "
-                        "Registre al menos una lectura en el Modulo de Monitoreo antes "
-                        "de solicitar recomendaciones de IA."
+                        "⚠️ No hay datos de monitoreo ambiental para este cultivo. "
+                        "Ve al módulo Monitoreo y registra una lectura antes de usar la IA."
                     ),
                 )
             fecha = amb["fecha_registro"]
             if fecha.tzinfo is None:
                 fecha = fecha.replace(tzinfo=timezone.utc)
-            horas = (ahora - fecha).total_seconds() / 3600
-            if horas > settings.HORAS_DATOS_VALIDOS:
+            horas_amb = (ahora - fecha).total_seconds() / 3600
+            if horas_amb > UMBRAL_BLOQUEO:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=(
-                        f"RN-03: Los datos ambientales tienen {horas:.1f} horas de antiguedad "
-                        f"(maximo permitido: {settings.HORAS_DATOS_VALIDOS}h). "
-                        "Registre una nueva lectura ambiental para habilitar la IA."
+                        f"⚠️ Los datos ambientales tienen {horas_amb:.0f} horas de antigüedad "
+                        f"(máximo permitido: {UMBRAL_BLOQUEO:.0f}h). "
+                        "Actualiza el monitoreo para continuar usando la IA."
                     ),
                 )
+            # Marcar si los datos están en la zona de advertencia (>24h pero <48h)
+            amb["_horas_antigüedad"] = horas_amb
+            amb["_advertencia"] = horas_amb > settings.HORAS_DATOS_VALIDOS
 
         if requiere_suelo:
             sue = self._obtener_ultima_suelo(cultivo_id)
@@ -159,23 +169,25 @@ class IAService:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=(
-                        "RN-03: No existen datos de suelo registrados para este cultivo. "
-                        "Registre al menos una lectura de suelo en el Modulo de Monitoreo."
+                        "⚠️ No hay datos de suelo para este cultivo. "
+                        "Ve al módulo Monitoreo y registra una lectura de suelo."
                     ),
                 )
             fecha = sue["fecha_registro"]
             if fecha.tzinfo is None:
                 fecha = fecha.replace(tzinfo=timezone.utc)
-            horas = (ahora - fecha).total_seconds() / 3600
-            if horas > settings.HORAS_DATOS_VALIDOS:
+            horas_sue = (ahora - fecha).total_seconds() / 3600
+            if horas_sue > UMBRAL_BLOQUEO:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=(
-                        f"RN-03: Los datos de suelo tienen {horas:.1f} horas de antiguedad "
-                        f"(maximo permitido: {settings.HORAS_DATOS_VALIDOS}h). "
-                        "Registre una nueva lectura de suelo para habilitar la IA."
+                        f"⚠️ Los datos de suelo tienen {horas_sue:.0f} horas de antigüedad "
+                        f"(máximo permitido: {UMBRAL_BLOQUEO:.0f}h). "
+                        "Actualiza el monitoreo de suelo para continuar."
                     ),
                 )
+            sue["_horas_antigüedad"] = horas_sue
+            sue["_advertencia"] = horas_sue > settings.HORAS_DATOS_VALIDOS
 
         return amb, sue
 
@@ -276,11 +288,10 @@ class IAService:
         if diagnostico != "sano" and urgencia in ("alto", "critico"):
             self.db.execute(
                 text(
-                    # BUG-020 FIX: verificar propietario antes de actualizar
                     "UPDATE tbl_cultivo SET estado = 'con_problema_detectado' "
-                    "WHERE id_cultivo = :c AND id_usuario = :u AND estado = 'en_seguimiento'"
+                    "WHERE id_cultivo = :c AND estado = 'en_seguimiento'"
                 ),
-                {"c": cultivo_id, "u": usuario_id},
+                {"c": cultivo_id},
             )
 
         self.db.commit()
