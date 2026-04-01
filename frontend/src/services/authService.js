@@ -18,11 +18,6 @@ export const authService = {
   },
 
   getAccessToken() {
-    // F-INT06 FIX: si la memoria está vacía (después de F5), restaurar desde sessionStorage
-    if (!_accessToken) {
-      const stored = sessionStorage.getItem("gv_access");
-      if (stored) _accessToken = stored;
-    }
     return _accessToken;
   },
 
@@ -30,6 +25,10 @@ export const authService = {
     _accessToken = null;
     sessionStorage.removeItem("gv_access");
     sessionStorage.removeItem("gv_refresh");
+    // R-001 FIX: limpiar cultivo activo para que el siguiente usuario
+    // no herede el cultivo del usuario anterior en el mismo tab
+    sessionStorage.removeItem("gv_cultivo_id");
+    sessionStorage.removeItem("gv_cultivo_nombre");
   },
 
   // ── Login ─────────────────────────────────────────────────
@@ -54,11 +53,9 @@ export const authService = {
 
     const data = await response.json();
 
-    // Guardar access token en memoria Y en sessionStorage
-    // F-INT06 FIX: sessionStorage sobrevive el F5/refresh de página;
-    // se pierde al cerrar la pestaña (más seguro que localStorage)
+    // Guardar access token en memoria
     _accessToken = data.access_token;
-    sessionStorage.setItem("gv_access", data.access_token);
+    // Refresh token en sessionStorage (se pierde al cerrar pestaña)
     sessionStorage.setItem("gv_refresh", data.refresh_token);
 
     return data;
@@ -98,7 +95,6 @@ export const authService = {
 
     const data = await response.json();
     _accessToken = data.access_token;
-    sessionStorage.setItem("gv_access", data.access_token);  // F-INT06 FIX
     return data.access_token;
   },
 

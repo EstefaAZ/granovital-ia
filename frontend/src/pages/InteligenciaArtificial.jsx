@@ -13,6 +13,7 @@
 // ==============================================================
 
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";  // R-003 FIX
 import { iaService } from "../services/iaService";
 
 // ── Colores GranoVital ──────────────────────────────────────
@@ -72,6 +73,7 @@ function Badge({ texto, urgencia = "bajo" }) {
 }
 
 function BannerRN03({ validez }) {
+  const navigate = useNavigate();  // R-003 FIX
   if (!validez) return null;
   const ok = validez.datos_validos_rn03;
   return (
@@ -82,17 +84,35 @@ function BannerRN03({ validez }) {
       display:"flex", alignItems:"center", gap:"0.8rem",
     }}>
       <span style={{ fontSize:"1.5rem" }}>{ok ? "✅" : "⚠️"}</span>
-      <div>
+      <div style={{ flex: 1 }}>
         <p style={{ margin:0, fontWeight:700, color: ok ? C.verde : C.amarillo }}>
           {ok ? "Datos actualizados — IA completamente disponible"
                : "Datos desactualizados — IA limitada (RN-03)"}
         </p>
         <p style={{ margin:"0.2rem 0 0", fontSize:"0.83rem", color:"#7a5c3a" }}>
-          {/* F-M05 FIX: mensaje amigable con instrucción accionable */}
-          {validez.datos_validos_rn03
+          {ok
             ? validez.mensaje_rn03
-            : "Tus datos de monitoreo están desactualizados. Registra una nueva lectura en Monitoreo para activar la IA."}
+            : "Tus datos de monitoreo están desactualizados. Registra una nueva lectura para activar la IA."}
         </p>
+        {/* R-003 FIX: botón de navegación rápida cuando datos están vencidos */}
+        {!ok && (
+          <button
+            onClick={() => navigate("/monitoreo")}
+            style={{
+              marginTop: "0.5rem",
+              padding: "0.35rem 1rem",
+              borderRadius: "8px",
+              border: `1.5px solid ${C.amarillo}`,
+              background: "#fff",
+              color: C.amarillo,
+              fontWeight: 700,
+              fontSize: "0.82rem",
+              cursor: "pointer",
+            }}
+          >
+            Ir a Monitoreo →
+          </button>
+        )}
       </div>
     </div>
   );
@@ -236,17 +256,6 @@ function PanelImagen({ tipo, cultivoId, onResultado }) {
         }}>{error}</div>
       )}
 
-      {resultado && resultado.modo_simulado && (
-        <div style={{
-          background:"#c0392b", color:"#fff",
-          padding:"8px 12px", borderRadius:"8px",
-          fontWeight:700, fontSize:"0.85rem",
-          marginBottom:"4px",
-        }}>
-          ⚠️ MODO DEMOSTRACIÓN: este diagnóstico es simulado y NO refleja la imagen real.
-        </div>
-      )}
-
       {resultado && col && (
         <div style={{
           background:col.bg, border:`2px solid ${col.borde}`,
@@ -286,9 +295,7 @@ function PanelImagen({ tipo, cultivoId, onResultado }) {
 // ── Componente principal ─────────────────────────────────────
 
 export default function InteligenciaArtificial() {
-  // F-C01 FIX: leer cultivoId de sessionStorage (escrito por Cultivos.jsx al seleccionar)
-  const cultivoId     = parseInt(sessionStorage.getItem("gv_cultivo_id") || "1", 10);
-  const cultivoNombre = sessionStorage.getItem("gv_cultivo_nombre") || "Mi Cultivo";
+  const cultivoId = 1;
   const [resumen,  setResumen]  = useState(null);
   const [cargando, setCargando] = useState(true);
 
@@ -389,16 +396,10 @@ export default function InteligenciaArtificial() {
     </div>
   );
 
-  if (!cultivoId || cultivoId === 1 && !sessionStorage.getItem("gv_cultivo_id")) return (
-    <div style={{ padding:"2rem", textAlign:"center", color:"#6f3a1b" }}>
-      <p style={{ fontSize:"1.1rem", fontWeight:600 }}>⚠️ No hay cultivo seleccionado</p>
-      <p style={{ color:"#9a7a5a" }}>Ve al módulo <strong>Cultivos</strong> y selecciona un cultivo para continuar.</p>
-    </div>
-  );
   if (cargando) return (
     <div style={estilos.contenedor}>
       <p style={{ textAlign:"center", color:C.cafeCla, padding:"3rem" }}>
-        Cargando módulo de IA...
+        Cargando modulo de IA...
       </p>
     </div>
   );
@@ -420,7 +421,7 @@ export default function InteligenciaArtificial() {
           <h1 style={{ margin:0, fontSize:"1.8rem", fontWeight:800, color:C.cafe }}>
             🤖 Inteligencia Artificial
           </h1>
-          <p style={{ margin:0, color:"#7a5c3a" }}>🌱 {cultivoNombre || `Cultivo #${cultivoId}`}</p>
+          <p style={{ margin:0, color:"#7a5c3a" }}>GranoVital IA — Cultivo #{cultivoId}</p>
         </div>
       </div>
 
