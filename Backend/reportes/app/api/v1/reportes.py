@@ -35,7 +35,9 @@ from app.schemas.reportes import (
 from app.services.reportes_service import ReportesService
 
 router = APIRouter(prefix="/reportes", tags=["Reportes y Auditoría"])
-SOLO_ADMIN = ("Administrador",)
+SOLO_ADMIN  = ("Administrador",)
+# F-R04 FIX: Comercializador puede ver sus propios reportes de mercado
+ADMIN_O_COMERCIALIZADOR = ("Administrador", "Comercializador")
 
 
 @router.get(

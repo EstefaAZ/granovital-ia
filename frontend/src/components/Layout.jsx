@@ -2,30 +2,21 @@
 // frontend/src/components/Layout.jsx
 // Sidebar + Navbar — GranoVital IA
 // RN-01: navegación filtrada por rol
-//
-// QA FIXES sobre la versión original del proyecto:
-//   UX-004 FIX: body sin text-align:center — #root ya no tiene width fijo
-//   OFF-002 FIX: badge de pendientes offline en navbar
-//   Accesibilidad: aria-label en botones de toggle y nav
 // =============================================================
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { getMenuPorRol } from "./menuConfig";
-import { useOfflineSync } from "../hooks/useOfflineSync";
 import {
   LogOut,
   Menu,
   X,
   ChevronRight,
   Coffee,
-  User,
-  Settings,
-  ChevronDown,
-  WifiOff,
 } from "lucide-react";
 
+// ── Paleta de colores café/tierra ────────────────────────────
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -50,10 +41,9 @@ const styles = `
     font-family: 'DM Sans', sans-serif;
     background: var(--crema);
     color: var(--texto-oscuro);
-    /* UX-004 FIX: sin text-align:center global que desalineaba el sidebar */
-    text-align: left;
   }
 
+  /* ── Layout contenedor ── */
   .gv-layout {
     display: flex;
     min-height: 100vh;
@@ -86,6 +76,7 @@ const styles = `
     transform: translateX(calc(-1 * var(--sidebar-w)));
   }
 
+  /* Logo */
   .gv-sidebar-logo {
     padding: 24px 20px 20px;
     border-bottom: 1px solid rgba(196,154,108,0.2);
@@ -120,6 +111,7 @@ const styles = `
     text-transform: uppercase;
   }
 
+  /* Rol badge */
   .gv-rol-badge {
     margin: 16px 20px 8px;
     padding: 6px 12px;
@@ -132,6 +124,7 @@ const styles = `
     text-align: center;
   }
 
+  /* Nav items */
   .gv-nav {
     flex: 1;
     padding: 8px 12px;
@@ -205,6 +198,7 @@ const styles = `
     transform: translateX(2px);
   }
 
+  /* Logout */
   .gv-sidebar-footer {
     padding: 12px;
     border-top: 1px solid rgba(196,154,108,0.2);
@@ -271,6 +265,7 @@ const styles = `
     background: var(--crema-oscura);
   }
 
+  /* Breadcrumb / título de página */
   .gv-page-title {
     font-family: 'Playfair Display', serif;
     font-size: 18px;
@@ -280,23 +275,11 @@ const styles = `
 
   .gv-navbar-spacer { flex: 1; }
 
-  /* ── DROPDOWN PERFIL ── */
-  .gv-user-trigger {
+  /* Avatar usuario */
+  .gv-user-info {
     display: flex;
     align-items: center;
     gap: 10px;
-    cursor: pointer;
-    padding: 6px 10px 6px 6px;
-    border-radius: 24px;
-    border: 1px solid transparent;
-    transition: all var(--transition);
-    user-select: none;
-    position: relative;
-  }
-
-  .gv-user-trigger:hover {
-    background: var(--crema-oscura);
-    border-color: var(--crema-oscura);
   }
 
   .gv-user-name {
@@ -327,101 +310,7 @@ const styles = `
     flex-shrink: 0;
   }
 
-  .gv-chevron {
-    color: var(--cafe-claro);
-    transition: transform var(--transition);
-    flex-shrink: 0;
-  }
-
-  .gv-chevron.open {
-    transform: rotate(180deg);
-  }
-
-  /* Dropdown menu */
-  .gv-dropdown {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    width: 220px;
-    background: #fff;
-    border: 1px solid var(--crema-oscura);
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(44,26,14,0.12);
-    overflow: hidden;
-    z-index: 200;
-    animation: dropIn 0.15s ease;
-  }
-
-  @keyframes dropIn {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .gv-dropdown-header {
-    padding: 14px 16px 10px;
-    border-bottom: 1px solid var(--crema-oscura);
-  }
-
-  .gv-dropdown-nombre {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--cafe-oscuro);
-  }
-
-  .gv-dropdown-correo {
-    font-size: 11px;
-    color: var(--cafe-claro);
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .gv-dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-    font-size: 13px;
-    color: var(--cafe-medio);
-    cursor: pointer;
-    transition: background var(--transition);
-    border: none;
-    background: none;
-    width: 100%;
-    text-align: left;
-    font-family: 'DM Sans', sans-serif;
-    text-decoration: none;
-  }
-
-  .gv-dropdown-item:hover {
-    background: var(--crema);
-  }
-
-  .gv-dropdown-item svg {
-    opacity: 0.7;
-    flex-shrink: 0;
-  }
-
-  .gv-dropdown-divider {
-    height: 1px;
-    background: var(--crema-oscura);
-    margin: 4px 0;
-  }
-
-  .gv-dropdown-item.danger {
-    color: #B91C1C;
-  }
-
-  .gv-dropdown-item.danger svg {
-    opacity: 1;
-  }
-
-  .gv-dropdown-item.danger:hover {
-    background: #FEF2F2;
-  }
-
-  /* ── MAIN ── */
+  /* ── CONTENIDO PRINCIPAL ── */
   .gv-main {
     margin-left: var(--sidebar-w);
     margin-top: var(--navbar-h);
@@ -435,6 +324,7 @@ const styles = `
     margin-left: 0;
   }
 
+  /* ── OVERLAY móvil ── */
   .gv-overlay {
     display: none;
     position: fixed;
@@ -443,13 +333,15 @@ const styles = `
     z-index: 99;
   }
 
+  /* ── Responsive ── */
   @media (max-width: 768px) {
     .gv-navbar { left: 0 !important; }
-    .gv-main   { margin-left: 0 !important; padding: 16px; }
+    .gv-main   { margin-left: 0 !important; }
     .gv-overlay.visible { display: block; }
   }
 `;
 
+// ── Nombres de página por ruta ────────────────────────────────
 const PAGE_TITLES = {
   "/dashboard":    "Dashboard",
   "/cultivos":     "Mis Cultivos",
@@ -461,62 +353,44 @@ const PAGE_TITLES = {
   "/perfil":       "Mi Perfil",
 };
 
+// ── Componente principal ──────────────────────────────────────
 export default function Layout({ children, currentPath = "/" }) {
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, tieneRol, bienvenida } = useAuth();  // F-L08
   const navigate = useNavigate();
   const [sidebarAbierto, setSidebarAbierto] = useState(true);
-  const [dropdownAbierto, setDropdownAbierto] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // OFF-002 FIX: badge de registros pendientes de sincronización offline
-  const { pendientes, sincronizando } = useOfflineSync();
 
   const rol = usuario?.rol?.nombre_rol || "";
-
-  // Filtrar "perfil" del menú lateral — va solo en el dropdown
-  const menuItems = getMenuPorRol(rol).filter(item => item.key !== "perfil");
-
+  const menuItems = getMenuPorRol(rol);
   const pageTitle = PAGE_TITLES[currentPath] || "GranoVital IA";
-  const inicial = usuario?.nombre?.charAt(0).toUpperCase() || "U";
-  const nombreCompleto = `${usuario?.nombre || ""} ${usuario?.apellido || ""}`.trim();
 
-  // Cerrar dropdown al hacer click fuera
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownAbierto(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  // Inicial del nombre para el avatar
+  const inicial = usuario?.nombre
+    ? usuario.nombre.charAt(0).toUpperCase()
+    : "U";
 
   const handleLogout = async () => {
-    setDropdownAbierto(false);
     await logout();
     navigate("/login");
   };
 
-  const irA = (path) => {
-    setDropdownAbierto(false);
-    navigate(path);
-  };
+  const toggleSidebar = () => setSidebarAbierto((v) => !v);
 
   return (
     <>
       <style>{styles}</style>
 
       <div className="gv-layout">
+        {/* ── Overlay móvil ── */}
         <div
           className={`gv-overlay ${sidebarAbierto ? "visible" : ""}`}
-          onClick={() => setSidebarAbierto(false)}
+          onClick={toggleSidebar}
         />
 
         {/* ── SIDEBAR ── */}
-        <aside className={`gv-sidebar ${sidebarAbierto ? "" : "collapsed"}`}
-          aria-label="Menú de navegación principal">
+        <aside className={`gv-sidebar ${sidebarAbierto ? "" : "collapsed"}`}>
+          {/* Logo */}
           <div className="gv-sidebar-logo">
-            <div className="gv-logo-icon" aria-hidden="true">
+            <div className="gv-logo-icon">
               <Coffee size={18} color="#F5ECD7" />
             </div>
             <div>
@@ -525,9 +399,11 @@ export default function Layout({ children, currentPath = "/" }) {
             </div>
           </div>
 
+          {/* Badge de rol */}
           {rol && <div className="gv-rol-badge">{rol}</div>}
 
-          <nav className="gv-nav" aria-label="Módulos del sistema">
+          {/* Navegación */}
+          <nav className="gv-nav">
             {menuItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -541,17 +417,18 @@ export default function Layout({ children, currentPath = "/" }) {
                     if (window.innerWidth <= 768) setSidebarAbierto(false);
                   }}
                 >
-                  <Icon size={18} aria-hidden="true" />
+                  <Icon size={18} />
                   <span>{item.label}</span>
-                  <ChevronRight size={14} className="gv-nav-arrow" aria-hidden="true" />
+                  <ChevronRight size={14} className="gv-nav-arrow" />
                 </NavLink>
               );
             })}
           </nav>
 
+          {/* Footer con logout */}
           <div className="gv-sidebar-footer">
             <button className="gv-logout-btn" onClick={handleLogout}>
-              <LogOut size={18} aria-hidden="true" />
+              <LogOut size={18} />
               <span>Cerrar sesión</span>
             </button>
           </div>
@@ -559,96 +436,40 @@ export default function Layout({ children, currentPath = "/" }) {
 
         {/* ── NAVBAR ── */}
         <header className={`gv-navbar ${sidebarAbierto ? "" : "sidebar-collapsed"}`}>
-          <button
-            className="gv-toggle-btn"
-            onClick={() => setSidebarAbierto(v => !v)}
-            aria-label={sidebarAbierto ? "Ocultar menú lateral" : "Mostrar menú lateral"}
-            aria-expanded={sidebarAbierto}
-          >
+          <button className="gv-toggle-btn" onClick={toggleSidebar}>
             {sidebarAbierto ? <X size={18} /> : <Menu size={18} />}
           </button>
 
           <span className="gv-page-title">{pageTitle}</span>
 
-          {/* OFF-002 FIX: badge de registros pendientes offline */}
-          {pendientes > 0 && (
-            <div
-              style={{
-                display: "flex", alignItems: "center", gap: "6px",
-                background: "#fffbeb", border: "1px solid #c8a000",
-                borderRadius: "20px", padding: "4px 10px",
-                fontSize: "12px", color: "#92400e", flexShrink: 0,
-              }}
-              title={`${pendientes} registro(s) pendiente(s) de sincronizar cuando haya conexión`}
-              role="status"
-              aria-live="polite"
-            >
-              <WifiOff size={13} aria-hidden="true" />
-              {sincronizando ? "Sincronizando..." : `${pendientes} pendiente(s)`}
-            </div>
-          )}
-
           <div className="gv-navbar-spacer" />
 
-          {/* Avatar con dropdown */}
-          <div ref={dropdownRef} style={{ position: "relative" }}>
-            <div
-              className="gv-user-trigger"
-              onClick={() => setDropdownAbierto(v => !v)}
-              role="button"
-              aria-haspopup="true"
-              aria-expanded={dropdownAbierto}
-              aria-label={`Menú de usuario: ${nombreCompleto || "Usuario"}`}
-            >
-              <div>
-                <div className="gv-user-name">{nombreCompleto || "Usuario"}</div>
-                <div className="gv-user-rol">{rol}</div>
-              </div>
-              <div className="gv-avatar" aria-hidden="true">{inicial}</div>
-              <ChevronDown
-                size={14}
-                className={`gv-chevron ${dropdownAbierto ? "open" : ""}`}
-                aria-hidden="true"
-              />
+          <div className="gv-user-info">
+            <div>
+              <div className="gv-user-name">{usuario?.nombre || "Usuario"}</div>
+              <div className="gv-user-rol">{rol}</div>
             </div>
-
-            {/* Dropdown */}
-            {dropdownAbierto && (
-              <div className="gv-dropdown" role="menu" aria-label="Opciones de usuario">
-                <div className="gv-dropdown-header">
-                  <div className="gv-dropdown-nombre">{nombreCompleto}</div>
-                  <div className="gv-dropdown-correo">{usuario?.correo}</div>
-                </div>
-
-                <button
-                  className="gv-dropdown-item"
-                  onClick={() => irA("/perfil")}
-                  role="menuitem"
-                >
-                  <User size={15} aria-hidden="true" />
-                  Mi perfil
-                </button>
-
-                <div className="gv-dropdown-divider" role="separator" />
-
-                <button
-                  className="gv-dropdown-item danger"
-                  onClick={handleLogout}
-                  role="menuitem"
-                >
-                  <LogOut size={15} aria-hidden="true" />
-                  Cerrar sesión
-                </button>
-              </div>
-            )}
+            <div className="gv-avatar">{inicial}</div>
           </div>
         </header>
 
+        {/* F-L08: toast de bienvenida */}
+        {bienvenida && (
+          <div style={{
+            position: "fixed", bottom: "24px", left: "50%",
+            transform: "translateX(-50%)", zIndex: 9999,
+            background: "var(--cafe-oscuro)", color: "var(--crema)",
+            padding: "12px 28px", borderRadius: "50px",
+            fontWeight: 600, fontSize: "15px",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+            animation: "fadeIn 0.3s ease",
+          }}>
+            {bienvenida}
+          </div>
+        )}
+
         {/* ── CONTENIDO ── */}
-        <main
-          className={`gv-main ${sidebarAbierto ? "" : "sidebar-collapsed"}`}
-          id="main-content"
-        >
+        <main className={`gv-main ${sidebarAbierto ? "" : "sidebar-collapsed"}`}>
           {children}
         </main>
       </div>

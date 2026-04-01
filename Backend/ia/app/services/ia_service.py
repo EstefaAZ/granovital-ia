@@ -70,18 +70,19 @@ class IAService:
     # ----------------------------------------------------------
 
     def _verificar_acceso_cultivo(self, cultivo_id: int, usuario_id: int) -> None:
-        r = self.db.execute(
+        # F-INT01 FIX: solo permitir análisis en cultivos activos
+    r = self.db.execute(
             text(
                 "SELECT id_cultivo FROM tbl_cultivo "
                 "WHERE id_cultivo = :c AND id_usuario = :u "
-                "AND estado != 'eliminado'"
+                "AND estado NOT IN ('eliminado', 'finalizado')"
             ),
             {"c": cultivo_id, "u": usuario_id},
         ).fetchone()
         if not r:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Cultivo {cultivo_id} no encontrado o sin acceso.",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Cultivo {cultivo_id} no encontrado, no es tuyo, o está finalizado/eliminado.",
             )
 
     def _obtener_ultima_ambiental(self, cultivo_id: int) -> Optional[dict]:
@@ -119,22 +120,14 @@ class IAService:
         requiere_suelo:     bool = True,
     ) -> tuple:
         """
-        F-M01 FIX: RN-03 ya no bloquea completamente la IA cuando los datos
-        tienen entre 24h y 48h. En ese rango muestra advertencia pero permite
-        usar las últimas recomendaciones disponibles (crucial en zonas rurales
-        sin conectividad los fines de semana).
-
-        Reglas:
-          - Sin datos:          bloquea (422) — no hay información base
-          - Datos < 24h:        OK sin advertencia
-          - Datos 24h–48h:      OK con advertencia "datos de hace X horas"
-          - Datos > 48h:        bloquea (422) — datos demasiado obsoletos
+        RN-03: verifica que los datos del M03 sean validos (< 24h).
+        Lanza HTTP 422 con mensaje claro si los datos estan caducados.
+        Retorna (datos_ambiental, datos_suelo).
         """
-        # Umbral máximo absoluto antes de bloquear (2x el configurado)
-        UMBRAL_BLOQUEO = settings.HORAS_DATOS_VALIDOS * 2  # 48h por defecto
-        ahora = datetime.now(timezone.utc)
-        amb   = None
-        sue   = None
+        limite    = timedelta(hours=settings.HORAS_DATOS_VALIDOS)
+        ahora     = datetime.now(timezone.utc)
+        amb       = None
+        sue       = None
 
         if requiere_ambiental:
             amb = self._obtener_ultima_ambiental(cultivo_id)
@@ -142,26 +135,24 @@ class IAService:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=(
-                        "⚠️ No hay datos de monitoreo ambiental para este cultivo. "
-                        "Ve al módulo Monitoreo y registra una lectura antes de usar la IA."
+                        "RN-03: No existen datos ambientales registrados para este cultivo. "
+                        "Registre al menos una lectura en el Modulo de Monitoreo antes "
+                        "de solicitar recomendaciones de IA."
                     ),
                 )
             fecha = amb["fecha_registro"]
             if fecha.tzinfo is None:
                 fecha = fecha.replace(tzinfo=timezone.utc)
-            horas_amb = (ahora - fecha).total_seconds() / 3600
-            if horas_amb > UMBRAL_BLOQUEO:
+            horas = (ahora - fecha).total_seconds() / 3600
+            if horas > settings.HORAS_DATOS_VALIDOS:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=(
-                        f"⚠️ Los datos ambientales tienen {horas_amb:.0f} horas de antigüedad "
-                        f"(máximo permitido: {UMBRAL_BLOQUEO:.0f}h). "
-                        "Actualiza el monitoreo para continuar usando la IA."
+                        f"RN-03: Los datos ambientales tienen {horas:.1f} horas de antiguedad "
+                        f"(maximo permitido: {settings.HORAS_DATOS_VALIDOS}h). "
+                        "Registre una nueva lectura ambiental para habilitar la IA."
                     ),
                 )
-            # Marcar si los datos están en la zona de advertencia (>24h pero <48h)
-            amb["_horas_antigüedad"] = horas_amb
-            amb["_advertencia"] = horas_amb > settings.HORAS_DATOS_VALIDOS
 
         if requiere_suelo:
             sue = self._obtener_ultima_suelo(cultivo_id)
@@ -169,25 +160,23 @@ class IAService:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=(
-                        "⚠️ No hay datos de suelo para este cultivo. "
-                        "Ve al módulo Monitoreo y registra una lectura de suelo."
+                        "RN-03: No existen datos de suelo registrados para este cultivo. "
+                        "Registre al menos una lectura de suelo en el Modulo de Monitoreo."
                     ),
                 )
             fecha = sue["fecha_registro"]
             if fecha.tzinfo is None:
                 fecha = fecha.replace(tzinfo=timezone.utc)
-            horas_sue = (ahora - fecha).total_seconds() / 3600
-            if horas_sue > UMBRAL_BLOQUEO:
+            horas = (ahora - fecha).total_seconds() / 3600
+            if horas > settings.HORAS_DATOS_VALIDOS:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=(
-                        f"⚠️ Los datos de suelo tienen {horas_sue:.0f} horas de antigüedad "
-                        f"(máximo permitido: {UMBRAL_BLOQUEO:.0f}h). "
-                        "Actualiza el monitoreo de suelo para continuar."
+                        f"RN-03: Los datos de suelo tienen {horas:.1f} horas de antiguedad "
+                        f"(maximo permitido: {settings.HORAS_DATOS_VALIDOS}h). "
+                        "Registre una nueva lectura de suelo para habilitar la IA."
                     ),
                 )
-            sue["_horas_antigüedad"] = horas_sue
-            sue["_advertencia"] = horas_sue > settings.HORAS_DATOS_VALIDOS
 
         return amb, sue
 

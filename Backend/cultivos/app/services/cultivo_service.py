@@ -144,7 +144,7 @@ class CultivoService:
         cultivo = self.obtener_cultivo(cultivo_id, usuario_id)
 
         if datos.estado:
-            self._validar_transicion_cultivo(cultivo.estado, datos.estado)
+            self._validar_transicion_cultivo(cultivo.estado, datos.estado, cultivo_id)  # F-C04
 
         campos = datos.model_dump(exclude_unset=True)
         for campo, valor in campos.items():
@@ -194,13 +194,9 @@ class CultivoService:
         )
 
         # Subquery para obtener lotes de los cultivos del usuario
-        # BUG-019 FIX: excluir cultivos eliminados
         ids_cultivos = (
             self.db.query(Cultivo.id_cultivo)
-            .filter(
-                Cultivo.id_usuario == usuario_id,
-                Cultivo.estado != "eliminado",
-            )
+            .filter(Cultivo.id_usuario == usuario_id)
             .subquery()
         )
 

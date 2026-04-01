@@ -1,25 +1,14 @@
 // ==============================================================
-// frontend/src/pages/Cultivos.jsx
-// Vista principal de Gestión de Cultivos y Lotes
+// modulo_02_cultivos / frontend/src/pages/Cultivos.jsx
+// Vista principal de Gestion de Cultivos y Lotes
 // RF-03 Cultivos | RF-04 Lotes | RNF-02 Usabilidad
-// RNF-07 Funciona en web y móvil (responsive)
-//
-// QA FIXES aplicados sobre la versión original del proyecto:
-//   BUG-011 FIX (original): sessionStorage para cultivoId activo
-//   BUG-026 FIX (original): fecha_cosecha sin conversión UTC errónea
-//   DATA-003 FIX: anti-doble-envío con useRef en todos los formularios
-//   DATA-004 FIX: validación de formato código de lote (LETRAS-AÑO-NUM)
-//   DATA-008 FIX: maxLength con contador en nombre_cultivo
-//   UX-001 FIX:  Modal compartido con cierre por tecla Escape (WCAG 2.1)
-//   UX-002 FIX:  aria-label descriptivo en botón cerrar modal
-//   SEC-006 FIX: nombreUsuario desde AuthContext, no desde localStorage
+// RNF-07 Funciona en web y movil (responsive)
 // ==============================================================
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { cultivoService, loteService } from "../services/cultivoService";
-import Modal from "../components/Modal";
-import { useAuth } from "../components/AuthContext";
 
+// Paleta de colores GranoVital
 const COLOR = {
   cafe:      "#6f3a1b",
   cafeCLaro: "#a0522d",
@@ -31,27 +20,26 @@ const COLOR = {
   borde:     "#d4b896",
 };
 
+// Etiquetas de estado del Cultivo (diagrama de estados)
 const ESTADO_CULTIVO = {
-  creado:                 { texto: "Creado",          color: COLOR.amarillo },
-  en_seguimiento:         { texto: "En Seguimiento",  color: COLOR.verde    },
-  con_problema_detectado: { texto: "Con Problema",    color: COLOR.rojo     },
-  tratamiento_aplicado:   { texto: "En Tratamiento",  color: "#7c3aed"      },
-  finalizado:             { texto: "Finalizado",      color: "#64748b"      },
-  eliminado:              { texto: "Eliminado",       color: "#94a3b8"      },
+  creado:                  { texto: "Creado",             color: COLOR.amarillo },
+  en_seguimiento:          { texto: "En Seguimiento",     color: COLOR.verde    },
+  con_problema_detectado:  { texto: "Con Problema",       color: COLOR.rojo     },
+  tratamiento_aplicado:    { texto: "En Tratamiento",     color: "#7c3aed"      },
+  finalizado:              { texto: "Finalizado",         color: "#64748b"      },
+  eliminado:               { texto: "Eliminado",          color: "#94a3b8"      },
 };
 
+// Etiquetas de estado del Lote (diagrama de estados)
 const ESTADO_LOTE = {
-  registrado:   { texto: "Registrado",   color: COLOR.amarillo },
-  disponible:   { texto: "Disponible",   color: "#0284c7"      },
-  en_analisis:  { texto: "En Análisis",  color: "#7c3aed"      },
-  aprobado:     { texto: "Aprobado",     color: COLOR.verde    },
-  con_problema: { texto: "Con Problema", color: COLOR.rojo     },
-  vendido:      { texto: "Vendido",      color: "#64748b"      },
-  eliminado:    { texto: "Eliminado",    color: "#94a3b8"      },
+  registrado:  { texto: "Registrado",  color: COLOR.amarillo },
+  disponible:  { texto: "Disponible",  color: "#0284c7"      },
+  en_analisis: { texto: "En Analisis", color: "#7c3aed"      },
+  aprobado:    { texto: "Aprobado",    color: COLOR.verde    },
+  con_problema:{ texto: "Con Problema",color: COLOR.rojo     },
+  vendido:     { texto: "Vendido",     color: "#64748b"      },
+  eliminado:   { texto: "Eliminado",   color: "#94a3b8"      },
 };
-
-// DATA-004 FIX: regex para validar formato del código de lote
-const REGEX_CODIGO_LOTE = /^[A-Z]{2,10}-\d{4}-\d{1,6}$/;
 
 // ==============================================================
 // COMPONENTES REUTILIZABLES
@@ -98,9 +86,45 @@ function Tarjeta({ titulo, valor, icono, color }) {
   );
 }
 
-// DATA-008 FIX: campo con maxLength y contador de caracteres
-function Campo({ label, name, value, onChange, type = "text", required = false,
-  placeholder = "", maxLength, errorMsg = "" }) {
+function Modal({ abierto, titulo, onCerrar, children }) {
+  if (!abierto) return null;
+  return (
+    <div style={{
+      position:   "fixed", inset: 0,
+      background: "rgba(0,0,0,0.4)",
+      display:    "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex:     1000,
+      padding:    "1rem",
+    }}>
+      <div style={{
+        background:   "#fff",
+        borderRadius: "16px",
+        padding:      "2rem",
+        width:        "100%",
+        maxWidth:     "520px",
+        maxHeight:    "90vh",
+        overflowY:    "auto",
+        boxShadow:    "0 20px 60px rgba(0,0,0,0.3)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+          <h3 style={{ margin: 0, color: COLOR.cafe }}>{titulo}</h3>
+          <button
+            onClick={onCerrar}
+            style={{ background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer" }}
+            aria-label="Cerrar modal"
+          >
+            x
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Campo({ label, name, value, onChange, type = "text", required = false, placeholder = "" }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
       <label style={{ fontSize: "0.83rem", fontWeight: 600, color: "#4a2c0a" }}>
@@ -113,27 +137,14 @@ function Campo({ label, name, value, onChange, type = "text", required = false,
         onChange={onChange}
         required={required}
         placeholder={placeholder}
-        maxLength={maxLength}
         style={{
-          padding:      "0.6rem 0.9rem",
-          border:       `1.5px solid ${errorMsg ? COLOR.rojo : COLOR.borde}`,
+          padding: "0.6rem 0.9rem",
+          border: `1.5px solid ${COLOR.borde}`,
           borderRadius: "8px",
-          fontSize:     "0.9rem",
-          outline:      "none",
+          fontSize: "0.9rem",
+          outline: "none",
         }}
       />
-      {/* DATA-008 FIX: contador visible de caracteres */}
-      {maxLength && (
-        <span style={{
-          fontSize: "0.73rem", textAlign: "right",
-          color: value.length > maxLength * 0.9 ? COLOR.amarillo : "#9a7a5a",
-        }}>
-          {value.length} / {maxLength}
-        </span>
-      )}
-      {errorMsg && (
-        <span style={{ fontSize: "0.73rem", color: COLOR.rojo }} role="alert">{errorMsg}</span>
-      )}
     </div>
   );
 }
@@ -151,10 +162,10 @@ function Boton({ onClick, children, variante = "primario", tipo = "button", desa
   };
 
   const variantes = {
-    primario:   { background: COLOR.cafe,  color: "#fff"     },
-    secundario: { background: "#f5f0eb",   color: COLOR.cafe, border: `1px solid ${COLOR.borde}` },
-    peligro:    { background: "#fee2e2",   color: COLOR.rojo  },
-    verde:      { background: "#dcfce7",   color: COLOR.verde },
+    primario:  { background: COLOR.cafe,      color: "#fff"     },
+    secundario:{ background: "#f5f0eb",        color: COLOR.cafe, border: `1px solid ${COLOR.borde}` },
+    peligro:   { background: "#fee2e2",        color: COLOR.rojo  },
+    verde:     { background: "#dcfce7",        color: COLOR.verde },
   };
 
   return (
@@ -162,7 +173,6 @@ function Boton({ onClick, children, variante = "primario", tipo = "button", desa
       type={tipo}
       onClick={onClick}
       disabled={desactivado}
-      aria-disabled={desactivado}
       style={{ ...estilosBase, ...variantes[variante] }}
     >
       {children}
@@ -182,45 +192,32 @@ function FormularioCultivo({ onGuardar, onCancelar, inicial = {} }) {
     variedad_cafe:  inicial.variedad_cafe  || "",
     observaciones:  inicial.observaciones  || "",
   });
-  // DATA-003 FIX: anti-doble-envío
-  const [guardando, setGuardando] = useState(false);
-  const enviandoRef = useRef(false);
 
   const cambio = (e) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
 
-  const enviar = async (e) => {
+  const enviar = (e) => {
     e.preventDefault();
-    if (enviandoRef.current) return;
-    enviandoRef.current = true;
-    setGuardando(true);
-    try {
-      await onGuardar({
-        ...form,
-        area_hectareas: form.area_hectareas ? parseFloat(form.area_hectareas) : undefined,
-      });
-    } finally {
-      enviandoRef.current = false;
-      setGuardando(false);
-    }
+    onGuardar({
+      ...form,
+      area_hectareas: form.area_hectareas ? parseFloat(form.area_hectareas) : undefined,
+    });
   };
 
   return (
     <form onSubmit={enviar} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <Campo label="Nombre del cultivo" name="nombre_cultivo" value={form.nombre_cultivo}
-        onChange={cambio} required placeholder="Ej: Finca La Esperanza" maxLength={100} />
-      <Campo label="Ubicación" name="ubicacion" value={form.ubicacion}
-        onChange={cambio} placeholder="Ej: Andes, Antioquia - Coordenadas GPS" maxLength={200} />
-      <Campo label="Área (hectáreas)" name="area_hectareas" value={form.area_hectareas}
+        onChange={cambio} required placeholder="Ej: Finca La Esperanza" />
+      <Campo label="Ubicacion" name="ubicacion" value={form.ubicacion}
+        onChange={cambio} placeholder="Ej: Andes, Antioquia - Coordenadas GPS" />
+      <Campo label="Area (hectareas)" name="area_hectareas" value={form.area_hectareas}
         onChange={cambio} type="number" placeholder="Ej: 3.5" />
-      <Campo label="Variedad de café" name="variedad_cafe" value={form.variedad_cafe}
-        onChange={cambio} placeholder="Ej: Castillo, Caturra, Colombia" maxLength={80} />
+      <Campo label="Variedad de cafe" name="variedad_cafe" value={form.variedad_cafe}
+        onChange={cambio} placeholder="Ej: Castillo, Caturra, Colombia" />
       <Campo label="Observaciones" name="observaciones" value={form.observaciones}
-        onChange={cambio} placeholder="Información adicional del cultivo" maxLength={500} />
+        onChange={cambio} placeholder="Informacion adicional del cultivo" />
       <div style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-        <Boton variante="secundario" onClick={onCancelar} desactivado={guardando}>Cancelar</Boton>
-        <Boton tipo="submit" variante="primario" desactivado={guardando}>
-          {guardando ? "Guardando..." : "Guardar"}
-        </Boton>
+        <Boton variante="secundario" onClick={onCancelar}>Cancelar</Boton>
+        <Boton tipo="submit" variante="primario">Guardar</Boton>
       </div>
     </form>
   );
@@ -234,74 +231,31 @@ function FormularioLote({ onGuardar, onCancelar }) {
   const [form, setForm] = useState({
     codigo_lote:   "",
     cantidad_kg:   "",
-    fecha_cosecha: "",
     observaciones: "",
   });
-  const [errores,   setErrores]  = useState({});
-  const [guardando, setGuardando] = useState(false);
-  const enviandoRef = useRef(false); // DATA-003
 
-  const cambio = (e) => {
-    setForm(p => ({ ...p, [e.target.name]: e.target.value }));
-    if (errores[e.target.name]) setErrores(p => ({ ...p, [e.target.name]: "" }));
-  };
+  const cambio = (e) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
 
-  // DATA-004 FIX: validar formato del código de lote
-  const validar = () => {
-    const nuevos = {};
-    const codigo = form.codigo_lote.trim().toUpperCase();
-    if (!codigo) {
-      nuevos.codigo_lote = "El código de lote es obligatorio.";
-    } else if (!REGEX_CODIGO_LOTE.test(codigo)) {
-      nuevos.codigo_lote = "Formato inválido. Usa: LETRAS-AÑO-NÚMERO (Ej: LOT-2025-001)";
-    }
-    setErrores(nuevos);
-    return Object.keys(nuevos).length === 0;
-  };
-
-  const enviar = async (e) => {
+  const enviar = (e) => {
     e.preventDefault();
-    if (!validar()) return;
-    if (enviandoRef.current) return; // DATA-003
-    enviandoRef.current = true;
-    setGuardando(true);
-    try {
-      await onGuardar({
-        ...form,
-        codigo_lote: form.codigo_lote.toUpperCase(),
-        cantidad_kg: form.cantidad_kg ? parseFloat(form.cantidad_kg) : undefined,
-        // BUG-026 FIX (original): enviar fecha como YYYY-MM-DD sin conversión UTC
-        // new Date().toISOString() desplaza el día al enviar en zonas horarias negativas
-        fecha_cosecha: form.fecha_cosecha || undefined,
-      });
-    } finally {
-      enviandoRef.current = false;
-      setGuardando(false);
-    }
+    onGuardar({
+      ...form,
+      codigo_lote: form.codigo_lote.toUpperCase(),
+      cantidad_kg: form.cantidad_kg ? parseFloat(form.cantidad_kg) : undefined,
+    });
   };
 
   return (
     <form onSubmit={enviar} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      <Campo label="Código del lote" name="codigo_lote" value={form.codigo_lote}
-        onChange={cambio} required placeholder="Ej: LOT-2025-001"
-        errorMsg={errores.codigo_lote} />
-      {/* DATA-004 FIX: texto de ayuda del formato */}
-      {!errores.codigo_lote && (
-        <p style={{ margin: "-0.7rem 0 0", fontSize: "0.73rem", color: "#9a7a5a" }}>
-          Formato: LETRAS-AÑO-NÚMERO (ej: LOT-2025-001, CAFE-2025-042)
-        </p>
-      )}
+      <Campo label="Codigo del lote" name="codigo_lote" value={form.codigo_lote}
+        onChange={cambio} required placeholder="Ej: LOT-2025-001" />
       <Campo label="Cantidad cosechada (kg)" name="cantidad_kg" value={form.cantidad_kg}
         onChange={cambio} type="number" placeholder="Ej: 450" />
-      <Campo label="Fecha de cosecha" name="fecha_cosecha" value={form.fecha_cosecha}
-        onChange={cambio} type="date" />
       <Campo label="Observaciones" name="observaciones" value={form.observaciones}
-        onChange={cambio} placeholder="Notas sobre la cosecha" maxLength={300} />
+        onChange={cambio} placeholder="Notas sobre la cosecha" />
       <div style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-        <Boton variante="secundario" onClick={onCancelar} desactivado={guardando}>Cancelar</Boton>
-        <Boton tipo="submit" variante="primario" desactivado={guardando}>
-          {guardando ? "Registrando..." : "Registrar Lote"}
-        </Boton>
+        <Boton variante="secundario" onClick={onCancelar}>Cancelar</Boton>
+        <Boton tipo="submit" variante="primario">Registrar Lote</Boton>
       </div>
     </form>
   );
@@ -312,20 +266,20 @@ function FormularioLote({ onGuardar, onCancelar }) {
 // ==============================================================
 
 export default function Cultivos() {
-  // SEC-006 FIX: nombre desde AuthContext, no desde localStorage
-  const { usuario } = useAuth();
-  const nombreUsuario = usuario?.nombre || "Caficultor";
+  const [resumen,        setResumen]        = useState(null);
+  const [cultivos,       setCultivos]       = useState([]);
+  const [busqueda,       setBusqueda]       = useState("");     // F-C09
+  const [filtroEstado,   setFiltroEstado]   = useState("todos"); // F-C09
+  const [lotes,          setLotes]          = useState([]);
+  const [cultivoActivo,  setCultivoActivo]  = useState(null);
+  const [cargando,       setCargando]       = useState(true);
+  const [error,          setError]          = useState("");
+  const [modalCultivo,   setModalCultivo]   = useState(false);
+  const [modalLote,      setModalLote]      = useState(false);
+  const [editando,       setEditando]       = useState(null);
+  const nombreUsuario    = localStorage.getItem("nombre") || "Caficultor";
 
-  const [resumen,       setResumen]       = useState(null);
-  const [cultivos,      setCultivos]      = useState([]);
-  const [lotes,         setLotes]         = useState([]);
-  const [cultivoActivo, setCultivoActivo] = useState(null);
-  const [cargando,      setCargando]      = useState(true);
-  const [error,         setError]         = useState("");
-  const [modalCultivo,  setModalCultivo]  = useState(false);
-  const [modalLote,     setModalLote]     = useState(false);
-  const [editando,      setEditando]      = useState(null);
-
+  // Carga inicial
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     setError("");
@@ -338,9 +292,6 @@ export default function Cultivos() {
       setCultivos(cvs);
       if (cvs.length > 0 && !cultivoActivo) {
         setCultivoActivo(cvs[0]);
-        // BUG-011 FIX (original): persistir cultivoId para Monitoreo e IA
-        sessionStorage.setItem("gv_cultivo_activo", cvs[0].id_cultivo);
-        sessionStorage.setItem("gv_cultivo_nombre", cvs[0].nombre_cultivo);
         const ls = await loteService.listar(cvs[0].id_cultivo);
         setLotes(ls);
       }
@@ -349,15 +300,21 @@ export default function Cultivos() {
     } finally {
       setCargando(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
+  // F-C09 FIX: cultivos filtrados por búsqueda y estado
+  const cultivosFiltrados = cultivos.filter(c => {
+    const matchNombre = c.nombre_cultivo.toLowerCase().includes(busqueda.toLowerCase());
+    const matchEstado = filtroEstado === "todos" || c.estado === filtroEstado;
+    return matchNombre && matchEstado;
+  });
+
   const seleccionarCultivo = async (cultivo) => {
+    // F-C07 FIX: no permitir seleccionar cultivos eliminados o cosechados
+    if (["eliminado", "finalizado"].includes(cultivo.estado)) return;
     setCultivoActivo(cultivo);
-    // BUG-011 FIX (original): actualizar sessionStorage al cambiar de cultivo activo
-    sessionStorage.setItem("gv_cultivo_activo", cultivo.id_cultivo);
-    sessionStorage.setItem("gv_cultivo_nombre", cultivo.nombre_cultivo);
     const ls = await loteService.listar(cultivo.id_cultivo).catch(() => []);
     setLotes(ls);
   };
@@ -374,7 +331,6 @@ export default function Cultivos() {
       cargarDatos();
     } catch (e) {
       setError(e.message);
-      throw e;
     }
   };
 
@@ -387,7 +343,6 @@ export default function Cultivos() {
       setLotes(ls);
     } catch (e) {
       setError(e.message);
-      throw e;
     }
   };
 
@@ -408,6 +363,7 @@ export default function Cultivos() {
   return (
     <div style={estilos.contenedor}>
 
+      {/* Encabezado */}
       <div style={estilos.encabezado}>
         <div>
           <h1 style={estilos.titulo}>☕ Mis Cultivos</h1>
@@ -418,26 +374,28 @@ export default function Cultivos() {
         </Boton>
       </div>
 
+      {/* Error global */}
       {error && (
         <div style={estilos.alerta} role="alert">
           {error}
-          <button onClick={() => setError("")}
-            style={{ marginLeft: "1rem", cursor: "pointer", fontWeight: 700, background: "none", border: "none", color: "#b91c1c" }}>
-            ✕
+          <button onClick={() => setError("")} style={{ marginLeft: "1rem", cursor: "pointer" }}>
+            cerrar
           </button>
         </div>
       )}
 
+      {/* Tarjetas de resumen */}
       {resumen && (
         <div style={estilos.gridResumen}>
-          <Tarjeta icono="🌱" titulo="Cultivos Activos"   valor={resumen.total_cultivos_activos} />
-          <Tarjeta icono="📦" titulo="Total Lotes"        valor={resumen.total_lotes} />
-          <Tarjeta icono="✅" titulo="Lotes Vendidos"     valor={resumen.lotes_vendidos}     color={COLOR.verde}  />
-          <Tarjeta icono="⚠️" titulo="Lotes con Problema" valor={resumen.lotes_con_problema}  color={COLOR.rojo}   />
-          <Tarjeta icono="🗺️" titulo="Área Total (ha)"   valor={(resumen.area_total_hectareas || 0).toFixed(1)} />
+          <Tarjeta icono="🌱" titulo="Cultivos Activos"    valor={resumen.total_cultivos_activos} />
+          <Tarjeta icono="📦" titulo="Total Lotes"         valor={resumen.total_lotes} />
+          <Tarjeta icono="✅" titulo="Lotes Vendidos"      valor={resumen.lotes_vendidos}      color={COLOR.verde}   />
+          <Tarjeta icono="⚠️" titulo="Lotes con Problema" valor={resumen.lotes_con_problema}   color={COLOR.rojo}    />
+          <Tarjeta icono="🗺️" titulo="Area Total (ha)"    valor={resumen.area_total_hectareas.toFixed(1)} />
         </div>
       )}
 
+      {/* Cuerpo principal: lista cultivos + detalle lotes */}
       <div style={estilos.gridPrincipal}>
 
         {/* Lista de cultivos */}
@@ -445,21 +403,49 @@ export default function Cultivos() {
           <h3 style={estilos.subtitulo}>Cultivos registrados</h3>
           {cultivos.length === 0 ? (
             <p style={{ color: "#999", fontSize: "0.9rem" }}>
-              Aún no tienes cultivos registrados.
+              Aun no tienes cultivos registrados.
             </p>
           ) : (
-            cultivos.map(c => (
+            {/* F-C09 FIX: búsqueda y filtro */}
+            <div style={{ marginBottom: "0.8rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <input
+                type="text"
+                placeholder="Buscar cultivo..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                style={{ flex: 1, minWidth: "120px", padding: "0.4rem 0.7rem",
+                  border: `1px solid ${COLOR.borde}`, borderRadius: "8px",
+                  fontSize: "0.83rem" }}
+              />
+              <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
+                style={{ padding: "0.4rem 0.7rem", border: `1px solid ${COLOR.borde}`,
+                  borderRadius: "8px", fontSize: "0.83rem", background: "#fff" }}>
+                <option value="todos">Todos los estados</option>
+                <option value="creado">Creado</option>
+                <option value="en_seguimiento">En seguimiento</option>
+                <option value="con_problema_detectado">Con problema</option>
+                <option value="finalizado">Finalizado</option>
+                <option value="eliminado">Eliminado</option>
+              </select>
+            </div>
+            {cultivosFiltrados.length === 0 && busqueda && (
+              <p style={{ color: "#9a7a5a", fontSize: "0.83rem", padding: "0.5rem" }}>
+                Sin resultados para "{busqueda}"
+              </p>
+            )}
+            {cultivosFiltrados.map(c => (
               <div
                 key={c.id_cultivo}
                 onClick={() => seleccionarCultivo(c)}
-                role="button"
-                tabIndex={0}
-                aria-pressed={cultivoActivo?.id_cultivo === c.id_cultivo}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") seleccionarCultivo(c); }}
                 style={{
                   ...estilos.itemCultivo,
-                  borderColor: cultivoActivo?.id_cultivo === c.id_cultivo ? COLOR.cafe : COLOR.borde,
-                  background:  cultivoActivo?.id_cultivo === c.id_cultivo ? "#f9f3ee" : "#fff",
+                  borderColor: cultivoActivo?.id_cultivo === c.id_cultivo
+                    ? COLOR.cafe : COLOR.borde,
+                  background: cultivoActivo?.id_cultivo === c.id_cultivo
+                    ? "#f9f3ee" : "#fff",
+                  // F-C07 FIX: atenuar cultivos no seleccionables
+                  opacity: ["eliminado","finalizado"].includes(c.estado) ? 0.45 : 1,
+                  cursor: ["eliminado","finalizado"].includes(c.estado) ? "not-allowed" : "pointer",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.4rem" }}>
@@ -467,18 +453,18 @@ export default function Cultivos() {
                   <Badge estado={c.estado} mapa={ESTADO_CULTIVO} />
                 </div>
                 <p style={{ margin: 0, fontSize: "0.8rem", color: "#7a5c3a" }}>
-                  {c.variedad_cafe || "Variedad no especificada"} —
-                  {c.area_hectareas ? ` ${c.area_hectareas} ha` : " Área no definida"}
+                  {c.variedad_cafe || "Variedad no especificada"} -
+                  {c.area_hectareas ? ` ${c.area_hectareas} ha` : " Area no definida"}
                 </p>
                 <p style={{ margin: "0.2rem 0 0", fontSize: "0.78rem", color: "#aaa" }}>
-                  {c.ubicacion || "Ubicación no registrada"}
+                  {c.ubicacion || "Ubicacion no registrada"}
                 </p>
               </div>
             ))
           )}
         </div>
 
-        {/* Detalle de lotes */}
+        {/* Detalle de lotes del cultivo seleccionado */}
         <div style={estilos.panelDer}>
           {cultivoActivo ? (
             <>
@@ -493,7 +479,7 @@ export default function Cultivos() {
 
               {lotes.length === 0 ? (
                 <p style={{ color: "#999", fontSize: "0.9rem" }}>
-                  Este cultivo aún no tiene lotes registrados.
+                  Este cultivo aun no tiene lotes registrados.
                 </p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
@@ -506,8 +492,7 @@ export default function Cultivos() {
                       <div style={{ display: "flex", gap: "2rem", marginTop: "0.5rem", fontSize: "0.82rem", color: "#7a5c3a" }}>
                         <span>
                           Cosecha: {l.fecha_cosecha
-                            // BUG-026 FIX: evitar desplazamiento de zona horaria al mostrar
-                            ? new Date(l.fecha_cosecha + "T12:00:00").toLocaleDateString("es-CO")
+                            ? new Date(l.fecha_cosecha).toLocaleDateString("es-CO")
                             : "No registrada"}
                         </span>
                         <span>
@@ -533,7 +518,7 @@ export default function Cultivos() {
         </div>
       </div>
 
-      {/* UX-001/002 FIX: Modal compartido (Escape + aria-label) */}
+      {/* Modal - Nuevo / Editar Cultivo */}
       <Modal
         abierto={modalCultivo}
         titulo={editando ? "Editar Cultivo" : "Registrar Nuevo Cultivo"}
@@ -546,6 +531,7 @@ export default function Cultivos() {
         />
       </Modal>
 
+      {/* Modal - Nuevo Lote */}
       <Modal
         abierto={modalLote}
         titulo={`Registrar Lote en: ${cultivoActivo?.nombre_cultivo || ""}`}
@@ -559,6 +545,10 @@ export default function Cultivos() {
     </div>
   );
 }
+
+// ==============================================================
+// ESTILOS
+// ==============================================================
 
 const estilos = {
   contenedor: {
@@ -575,14 +565,16 @@ const estilos = {
     marginBottom:   "1.5rem",
   },
   titulo: {
-    margin: 0, fontSize: "1.8rem",
-    fontWeight: 800, color: COLOR.cafe,
+    margin:     0,
+    fontSize:   "1.8rem",
+    fontWeight: 800,
+    color:      COLOR.cafe,
   },
   subtitulo: {
-    margin: "0 0 1rem",
-    fontSize: "1rem",
-    fontWeight: 700,
-    color: COLOR.cafe,
+    margin:       "0 0 1rem",
+    fontSize:     "1rem",
+    fontWeight:   700,
+    color:        COLOR.cafe,
     borderBottom: `2px solid ${COLOR.borde}`,
     paddingBottom: "0.5rem",
   },
@@ -612,7 +604,7 @@ const estilos = {
     minHeight:    "400px",
   },
   itemCultivo: {
-    border:       "2px solid",
+    border:       `2px solid`,
     borderRadius: "10px",
     padding:      "1rem",
     cursor:       "pointer",
@@ -633,7 +625,5 @@ const estilos = {
     color:        "#b91c1c",
     marginBottom: "1rem",
     fontSize:     "0.87rem",
-    display:      "flex",
-    alignItems:   "center",
   },
 };

@@ -4,7 +4,7 @@
 // Encapsula carga de datos, polling automatico y alertas
 // ==============================================================
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";  // BUG-049 FIX
 import {
   monitoreoService,
   ambientalService,
@@ -40,10 +40,15 @@ export function useMonitoreo(cultivoId, intervaloSegundos = 60) {
     }
   }, [cultivoId]);
 
+  // BUG-049 FIX: useRef garantiza que solo hay un intervalo activo a la vez
+  const intervaloRef = useRef(null);
   useEffect(() => {
     cargar();
-    const intervalo = setInterval(cargar, intervaloSegundos * 1000);
-    return () => clearInterval(intervalo);
+    if (intervaloRef.current) clearInterval(intervaloRef.current);
+    intervaloRef.current = setInterval(cargar, intervaloSegundos * 1000);
+    return () => {
+      if (intervaloRef.current) clearInterval(intervaloRef.current);
+    };
   }, [cargar, intervaloSegundos]);
 
   return { resumen, validez, cargando, error, recargar: cargar };

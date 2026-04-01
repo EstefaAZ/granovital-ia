@@ -1,26 +1,22 @@
 // ==============================================================
-// frontend/src/pages/Monitoreo.jsx
+// modulo_03_monitoreo / frontend/src/pages/Monitoreo.jsx
 // Dashboard de Monitoreo Ambiental y Suelo
 //
 // RF-03  Visualiza variables ambientales en tiempo real
-// RF-04  Visualiza estado del suelo con interpretación
+// RF-04  Visualiza estado del suelo con interpretacion
 // RN-03  Indicador de validez de datos para IA
-// RNF-02 Usabilidad para usuarios sin perfil técnico
-// RNF-07 Responsive — funciona en web y móvil
-//
-// QA FIXES sobre la versión original del proyecto:
-//   BUG-011 FIX (original): cultivoId desde sessionStorage (escrito por Cultivos.jsx)
-//   UX-001 FIX: Modal compartido con cierre por tecla Escape (WCAG 2.1)
-//   UX-002 FIX: aria-label en botón cerrar modal
-//   DATA-003 FIX: botones deshabilitados durante guardado (en formularios)
+// RNF-02 Usabilidad para usuarios sin perfil tecnico
+// RNF-07 Responsive - funciona en web y movil
 // ==============================================================
 
 import { useState } from "react";
 import { useMonitoreo, useHistorialAmbiental, useHistorialSuelo } from "../hooks/useMonitoreo";
 import FormularioAmbiental from "../components/FormularioAmbiental";
 import FormularioSuelo     from "../components/FormularioSuelo";
-import Modal               from "../components/Modal";
 
+// ==============================================================
+// CONSTANTES DE DISENO
+// ==============================================================
 const COLOR = {
   cafe:     "#6f3a1b",
   cafeCla:  "#a0522d",
@@ -37,12 +33,53 @@ const COLOR = {
 // SUBCOMPONENTES
 // ==============================================================
 
+function Modal({ abierto, titulo, onCerrar, children }) {
+  if (!abierto) return null;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000, padding: "1rem",
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: "16px", padding: "2rem",
+        width: "100%", maxWidth: "540px", maxHeight: "90vh",
+        overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+          <h3 style={{ margin: 0, color: COLOR.cafe }}>{titulo}</h3>
+          <button onClick={onCerrar}
+            style={{ background: "none", border: "none", fontSize: "1.4rem", cursor: "pointer" }}>
+            x
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// F-M06 FIX: badge de origen del dato (IoT vs manual)
+function BadgeOrigen({ origen }) {
+  const esIot = origen === "sensor_iot" || origen === "mqtt";
+  return (
+    <span style={{
+      fontSize: "0.68rem", padding: "2px 7px", borderRadius: "999px", fontWeight: 600,
+      background: esIot ? "#e0f2fe" : "#f0fdf4",
+      color: esIot ? "#0369a1" : "#15803d",
+      border: `1px solid ${esIot ? "#7dd3fc" : "#86efac"}`,
+    }}>
+      {esIot ? "📡 IoT" : "✏️ Manual"}
+    </span>
+  );
+}
+
 function TarjetaMetrica({ icono, etiqueta, valor, unidad, estado = "normal" }) {
   const colores = {
-    normal:  { bg: "#fff",    borde: COLOR.borde,   texto: COLOR.cafe  },
-    alerta:  { bg: "#fffbeb", borde: COLOR.amarillo, texto: COLOR.amarillo },
-    critico: { bg: "#fff1f0", borde: COLOR.rojo,    texto: COLOR.rojo  },
-    optimo:  { bg: "#f0fdf4", borde: COLOR.verde,   texto: COLOR.verde },
+    normal:   { bg: "#fff",     borde: COLOR.borde,   texto: COLOR.cafe  },
+    alerta:   { bg: "#fffbeb",  borde: COLOR.amarillo, texto: COLOR.amarillo },
+    critico:  { bg: "#fff1f0",  borde: COLOR.rojo,    texto: COLOR.rojo  },
+    optimo:   { bg: "#f0fdf4",  borde: COLOR.verde,   texto: COLOR.verde },
   };
   const c = colores[estado] || colores.normal;
   return (
@@ -51,13 +88,13 @@ function TarjetaMetrica({ icono, etiqueta, valor, unidad, estado = "normal" }) {
       borderRadius: "12px", padding: "1rem 1.2rem",
       display: "flex", alignItems: "center", gap: "0.8rem",
     }}>
-      <span style={{ fontSize: "1.8rem" }} aria-hidden="true">{icono}</span>
+      <span style={{ fontSize: "1.8rem" }}>{icono}</span>
       <div>
         <p style={{ margin: 0, fontSize: "0.78rem", color: "#7a5c3a", fontWeight: 600 }}>
           {etiqueta}
         </p>
         <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, color: c.texto }}>
-          {valor !== null && valor !== undefined ? `${valor}` : "—"}
+          {valor !== null && valor !== undefined ? `${valor}` : "-"}
           {valor !== null && valor !== undefined && unidad && (
             <span style={{ fontSize: "0.85rem", fontWeight: 400 }}> {unidad}</span>
           )}
@@ -84,8 +121,8 @@ function BannerValidez({ validez }) {
       <div>
         <p style={{ margin: 0, fontWeight: 700, color: esValido ? COLOR.verde : COLOR.amarillo }}>
           {esValido
-            ? "Datos actualizados — IA habilitada"
-            : "Datos desactualizados — IA no disponible"}
+            ? "Datos actualizados - IA habilitada"
+            : "Datos desactualizados - IA no disponible"}
         </p>
         <p style={{ margin: "0.2rem 0 0", fontSize: "0.83rem", color: "#7a5c3a" }}>
           {validez.mensaje}
@@ -156,7 +193,7 @@ function FilaHistorial({ fecha, origen, variables }) {
 }
 
 // ==============================================================
-// FUNCIONES DE ESTADO DE ALERTA
+// DETERMINACION DE ESTADO DE ALERTA DE UNA METRICA
 // ==============================================================
 function estadoTemp(v) {
   if (v === null || v === undefined) return "normal";
@@ -182,20 +219,17 @@ function estadoPH(v) {
 // ==============================================================
 
 export default function Monitoreo() {
-  // BUG-011 FIX (original): leer cultivoId desde sessionStorage.
-  // Cultivos.jsx escribe "gv_cultivo_activo" al seleccionar o cargar un cultivo.
-  const cultivoId = sessionStorage.getItem("gv_cultivo_activo")
-    ? parseInt(sessionStorage.getItem("gv_cultivo_activo"), 10)
-    : null;
-  const cultivoNombre = sessionStorage.getItem("gv_cultivo_nombre") || "Mi Cultivo";
+  // En produccion, cultivoId vendria del contexto de navegacion
+  const cultivoId    = 1;
+  const cultivoNombre = localStorage.getItem("cultivo_nombre") || "Mi Cultivo";
 
   const { resumen, validez, cargando, error, recargar } = useMonitoreo(cultivoId, 60);
   const { historial: histAmb, recargar: recargarAmb }   = useHistorialAmbiental(cultivoId, 15);
   const { historial: histSue, recargar: recargarSue }   = useHistorialSuelo(cultivoId, 15);
 
-  const [modalAmb,   setModalAmb]   = useState(false);
-  const [modalSuelo, setModalSuelo] = useState(false);
-  const [tabActiva,  setTabActiva]  = useState("ambiental");
+  const [modalAmb,    setModalAmb]    = useState(false);
+  const [modalSuelo,  setModalSuelo]  = useState(false);
+  const [tabActiva,   setTabActiva]   = useState("ambiental");
 
   const alGuardarAmb = () => {
     setModalAmb(false);
@@ -209,19 +243,8 @@ export default function Monitoreo() {
   };
 
   // ==============================================================
-  // RENDER — sin cultivo seleccionado
+  // RENDER
   // ==============================================================
-  if (!cultivoId) {
-    return (
-      <div style={{ padding: "2rem", textAlign: "center", color: "#6f3a1b" }}>
-        <p style={{ fontSize: "2rem" }}>🌿</p>
-        <p style={{ fontSize: "1.1rem", fontWeight: 600 }}>⚠️ No hay cultivo seleccionado</p>
-        <p style={{ color: "#9a7a5a" }}>
-          Ve al módulo <strong>Cultivos</strong> y selecciona un cultivo para continuar.
-        </p>
-      </div>
-    );
-  }
 
   if (cargando && !resumen) {
     return (
@@ -233,29 +256,26 @@ export default function Monitoreo() {
     );
   }
 
-  // ==============================================================
-  // RENDER PRINCIPAL
-  // ==============================================================
   return (
     <div style={estilos.contenedor}>
 
+      {/* Encabezado */}
       <div style={estilos.encabezado}>
         <div>
           <h1 style={estilos.titulo}>🌡️ Monitoreo</h1>
           <p style={{ margin: 0, color: "#7a5c3a" }}>{cultivoNombre}</p>
         </div>
         <div style={{ display: "flex", gap: "0.8rem" }}>
-          <button onClick={() => setModalAmb(true)} style={estilos.botonVerde}
-            aria-label="Registrar nueva lectura ambiental">
+          <button onClick={() => setModalAmb(true)} style={estilos.botonVerde}>
             + Ambiental
           </button>
-          <button onClick={() => setModalSuelo(true)} style={estilos.botonCafe}
-            aria-label="Registrar nuevo análisis de suelo">
+          <button onClick={() => setModalSuelo(true)} style={estilos.botonCafe}>
             + Suelo
           </button>
         </div>
       </div>
 
+      {/* Error global */}
       {error && (
         <div style={estilos.alerta} role="alert">{error}</div>
       )}
@@ -274,20 +294,20 @@ export default function Monitoreo() {
           </p>
           {resumen.alertas.map((a, i) => (
             <p key={i} style={{ margin: "0.25rem 0", fontSize: "0.85rem", color: "#7a5c3a" }}>
-              — {a}
+              - {a}
             </p>
           ))}
         </div>
       )}
 
-      {/* Métricas ambientales */}
-      <section aria-labelledby="seccion-ambiental">
-        <h2 id="seccion-ambiental" style={estilos.seccion}>Variables Ambientales</h2>
+      {/* Metricas ambientales */}
+      <section>
+        <h2 style={estilos.seccion}>Variables Ambientales</h2>
         <div style={estilos.gridMetricas}>
           <TarjetaMetrica
             icono="🌡️" etiqueta="Temperatura"
             valor={resumen?.ultima_temperatura}
-            unidad="°C"
+            unidad="C"
             estado={estadoTemp(resumen?.ultima_temperatura)}
           />
           <TarjetaMetrica
@@ -297,16 +317,16 @@ export default function Monitoreo() {
             estado={estadoHumRel(resumen?.ultima_humedad_rel)}
           />
           <TarjetaMetrica
-            icono="🌧️" etiqueta="Precipitación"
+            icono="🌧️" etiqueta="Precipitacion"
             valor={resumen?.ultima_precipitacion}
             unidad="mm"
           />
         </div>
       </section>
 
-      {/* Métricas de suelo */}
-      <section aria-labelledby="seccion-suelo">
-        <h2 id="seccion-suelo" style={estilos.seccion}>Estado del Suelo</h2>
+      {/* Metricas de suelo */}
+      <section>
+        <h2 style={estilos.seccion}>Estado del Suelo</h2>
         <div style={estilos.gridMetricas}>
           <TarjetaMetrica
             icono="🧪" etiqueta="pH del suelo"
@@ -319,7 +339,7 @@ export default function Monitoreo() {
             unidad="%"
           />
           <TarjetaMetrica
-            icono="🌿" etiqueta="Nitrógeno"
+            icono="🌿" etiqueta="Nitrogeno"
             valor={resumen?.ultimo_nitrogeno}
             unidad="mg/kg"
             estado={
@@ -331,14 +351,12 @@ export default function Monitoreo() {
       </section>
 
       {/* Historial con tabs */}
-      <section aria-labelledby="seccion-historial">
+      <section>
         <div style={{ display: "flex", gap: 0, borderBottom: `2px solid ${COLOR.borde}`, marginBottom: "1rem" }}>
           {["ambiental", "suelo"].map(tab => (
             <button
               key={tab}
               onClick={() => setTabActiva(tab)}
-              role="tab"
-              aria-selected={tabActiva === tab}
               style={{
                 padding:    "0.6rem 1.5rem",
                 border:     "none",
@@ -369,11 +387,11 @@ export default function Monitoreo() {
                   fecha={r.fecha_registro}
                   origen={r.origen_dato}
                   variables={[
-                    { etiqueta: "Temp",   valor: r.temperatura,      unidad: "°C"   },
-                    { etiqueta: "Hum",    valor: r.humedad_relativa,  unidad: "%"    },
-                    { etiqueta: "Lluvia", valor: r.precipitacion_mm,  unidad: "mm"   },
-                    { etiqueta: "Rad",    valor: r.radiacion_solar,   unidad: "W/m²" },
-                    { etiqueta: "Viento", valor: r.velocidad_viento,  unidad: "km/h" },
+                    { etiqueta: "Temp",    valor: r.temperatura,       unidad: "C"    },
+                    { etiqueta: "Hum",     valor: r.humedad_relativa,  unidad: "%"    },
+                    { etiqueta: "Lluvia",  valor: r.precipitacion_mm,  unidad: "mm"   },
+                    { etiqueta: "Rad",     valor: r.radiacion_solar,   unidad: "W/m2" },
+                    { etiqueta: "Viento",  valor: r.velocidad_viento,  unidad: "km/h" },
                   ]}
                 />
               ))
@@ -394,12 +412,12 @@ export default function Monitoreo() {
                   fecha={r.fecha_registro}
                   origen={r.origen_dato}
                   variables={[
-                    { etiqueta: "pH",   valor: r.ph,               unidad: ""      },
-                    { etiqueta: "Hum",  valor: r.humedad_suelo,    unidad: "%"     },
-                    { etiqueta: "N",    valor: r.nitrogeno,        unidad: "mg/kg" },
-                    { etiqueta: "P",    valor: r.fosforo,          unidad: "mg/kg" },
-                    { etiqueta: "K",    valor: r.potasio,          unidad: "mg/kg" },
-                    { etiqueta: "M.O.", valor: r.materia_organica, unidad: "%"     },
+                    { etiqueta: "pH",   valor: r.ph,               unidad: ""       },
+                    { etiqueta: "Hum",  valor: r.humedad_suelo,    unidad: "%"      },
+                    { etiqueta: "N",    valor: r.nitrogeno,        unidad: "mg/kg"  },
+                    { etiqueta: "P",    valor: r.fosforo,          unidad: "mg/kg"  },
+                    { etiqueta: "K",    valor: r.potasio,          unidad: "mg/kg"  },
+                    { etiqueta: "M.O.", valor: r.materia_organica, unidad: "%"      },
                   ]}
                 />
               ))
@@ -408,7 +426,7 @@ export default function Monitoreo() {
         )}
       </section>
 
-      {/* UX-001/002 FIX: Modal compartido con Escape y aria-label */}
+      {/* Modal - Ambiental */}
       <Modal abierto={modalAmb} titulo="Registrar lectura ambiental" onCerrar={() => setModalAmb(false)}>
         <FormularioAmbiental
           cultivoId={cultivoId}
@@ -417,7 +435,8 @@ export default function Monitoreo() {
         />
       </Modal>
 
-      <Modal abierto={modalSuelo} titulo="Registrar análisis de suelo" onCerrar={() => setModalSuelo(false)}>
+      {/* Modal - Suelo */}
+      <Modal abierto={modalSuelo} titulo="Registrar analisis de suelo" onCerrar={() => setModalSuelo(false)}>
         <FormularioSuelo
           cultivoId={cultivoId}
           onGuardado={alGuardarSuelo}

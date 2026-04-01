@@ -216,13 +216,10 @@ class TrazabilidadService:
             )
 
     def _generar_codigo_lote(self) -> str:
-        """Genera codigo legible unico: GV-AAAA-NNNN.
-        BUG-029 FIX: SELECT ... FOR UPDATE serializa la lectura del contador
-        evitando race condition cuando 2 requests llegan simultáneamente.
-        """
+        """Genera codigo legible unico: GV-AAAA-NNNN."""
         anio   = datetime.now().year
         ultimo = self.db.execute(
-            text("SELECT COUNT(*) as cnt FROM tbl_trazabilidad_lote FOR UPDATE")
+            text("SELECT COUNT(*) as cnt FROM tbl_trazabilidad_lote")
         ).fetchone()
         num = (ultimo.cnt + 1) if ultimo else 1
         return f"GV-{anio}-{num:04d}"
@@ -679,15 +676,41 @@ class TrazabilidadService:
                 detail="Este lote no esta disponible para consulta publica aun.",
             )
 
+        # F-T06 FIX: verificar hash de integridad antes de retornar datos
+        if lote.hash_integridad:
+            from app.util.hash_integridad import verificar_hash_lote
+            try:
+                integro = verificar_hash_lote(
+                    lote.hash_integridad,
+                    lote.codigo_lote,
+                    lote.variedad_cafe,
+                    lote.fecha_cosecha.strftime("%Y-%m-%dT%H:%M:%S"),
+                    float(lote.kg_cereza_cosechados or 0),
+                    lote.clasificacion_calidad or "",
+                    lote.humedad_final_pct,
+                    lote.numero_defectos,
+                    settings.HASH_INTEGRIDAD_SAL,
+                )
+                if not integro:
+                    logger.warning(f"F-T06: integridad comprometida lote {lote.codigo_lote}")
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="La integridad del registro de este lote no pudo verificarse. Contacte al productor.",
+                    )
+            except HTTPException:
+                raise
+            except Exception as e_hash:
+                logger.warning(f"F-T06 hash check error: {e_hash}")
+
         # Obtener informacion del cultivo para la region
         region = None
         try:
             r = self.db.execute(
-                text("SELECT municipio FROM tbl_cultivo WHERE id_cultivo = :c"),
+                text("SELECT ubicacion FROM tbl_cultivo WHERE id_cultivo = :c"),
                 {"c": lote.id_cultivo},
             ).fetchone()
             if r:
-                region = r.municipio
+                region = r.ubicacion
         except Exception:
             pass
 
