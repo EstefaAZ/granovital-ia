@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import, get_current_user_id, require_roles
+from app.core.security import get_current_user_id, require_roles
 from app.schemas.reportes import (
     AuditoriaCreate,
     AuditoriaFiltros,
