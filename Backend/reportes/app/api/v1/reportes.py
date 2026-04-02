@@ -36,6 +36,8 @@ from app.services.reportes_service import ReportesService
 
 router = APIRouter(prefix="/reportes", tags=["Reportes y Auditoría"])
 SOLO_ADMIN = ("Administrador",)
+# R-002 FIX: Comercializador puede solicitar reportes de mercado
+ADMIN_O_COMERCIALIZADOR = ("Administrador", "Comercializador")
 
 
 @router.get(
@@ -71,8 +73,7 @@ def solicitar_reporte(
     solicitud:  ReporteSolicitud,
     request:    Request,
     usuario_id: int = Depends(get_current_user_id),
-    # R-002 FIX: Comercializador puede solicitar reportes de mercado
-    _rol:       str = Depends(require_roles(*ADMIN_O_COMERCIALIZADOR)),
+    _rol:       str = Depends(require_roles(*SOLO_ADMIN)),
     db:         Session = Depends(get_db),
 ) -> ReporteResponse:
     # Obtener nombre del usuario del token (si viene)

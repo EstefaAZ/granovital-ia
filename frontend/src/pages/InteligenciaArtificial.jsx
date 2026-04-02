@@ -13,7 +13,6 @@
 // ==============================================================
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";  // R-003 FIX
 import { iaService } from "../services/iaService";
 
 // ── Colores GranoVital ──────────────────────────────────────
@@ -73,7 +72,6 @@ function Badge({ texto, urgencia = "bajo" }) {
 }
 
 function BannerRN03({ validez }) {
-  const navigate = useNavigate();  // R-003 FIX
   if (!validez) return null;
   const ok = validez.datos_validos_rn03;
   return (
@@ -84,35 +82,14 @@ function BannerRN03({ validez }) {
       display:"flex", alignItems:"center", gap:"0.8rem",
     }}>
       <span style={{ fontSize:"1.5rem" }}>{ok ? "✅" : "⚠️"}</span>
-      <div style={{ flex: 1 }}>
+      <div>
         <p style={{ margin:0, fontWeight:700, color: ok ? C.verde : C.amarillo }}>
           {ok ? "Datos actualizados — IA completamente disponible"
                : "Datos desactualizados — IA limitada (RN-03)"}
         </p>
         <p style={{ margin:"0.2rem 0 0", fontSize:"0.83rem", color:"#7a5c3a" }}>
-          {ok
-            ? validez.mensaje_rn03
-            : "Tus datos de monitoreo están desactualizados. Registra una nueva lectura para activar la IA."}
+          {validez.mensaje_rn03}
         </p>
-        {/* R-003 FIX: botón de navegación rápida cuando datos están vencidos */}
-        {!ok && (
-          <button
-            onClick={() => navigate("/monitoreo")}
-            style={{
-              marginTop: "0.5rem",
-              padding: "0.35rem 1rem",
-              borderRadius: "8px",
-              border: `1.5px solid ${C.amarillo}`,
-              background: "#fff",
-              color: C.amarillo,
-              fontWeight: 700,
-              fontSize: "0.82rem",
-              cursor: "pointer",
-            }}
-          >
-            Ir a Monitoreo →
-          </button>
-        )}
       </div>
     </div>
   );
@@ -295,7 +272,9 @@ function PanelImagen({ tipo, cultivoId, onResultado }) {
 // ── Componente principal ─────────────────────────────────────
 
 export default function InteligenciaArtificial() {
-  const cultivoId = 1;
+  // F-C01 FIX: leer cultivoId de sessionStorage (ciclo4 re-apply)
+  const cultivoId     = parseInt(sessionStorage.getItem("gv_cultivo_id") || "1", 10);
+  const cultivoNombre = sessionStorage.getItem("gv_cultivo_nombre") || "Mi Cultivo";
   const [resumen,  setResumen]  = useState(null);
   const [cargando, setCargando] = useState(true);
 
