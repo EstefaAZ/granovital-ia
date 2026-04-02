@@ -7,7 +7,7 @@
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, DateTime, Enum,
-    ForeignKey, Text, UniqueConstraint
+    ForeignKey, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -95,11 +95,8 @@ class Usuario(Base):
     )
     intentos_fallidos = Column(Integer, nullable=False, default=0,
                                comment="Contador de intentos de login fallidos")
-    ultimo_acceso     = Column(DateTime, nullable=True,
-                               comment="Fecha del último login exitoso")
-    # BUG-015 FIX: timestamp para liberar bloqueo automático
-    fecha_suspension  = Column(DateTime, nullable=True,
-                               comment="Momento de suspensión — se libera tras LOGIN_LOCKOUT_MINUTES")
+    ultimo_acceso  = Column(DateTime, nullable=True,
+                            comment="Fecha del último login exitoso")
     id_rol         = Column(Integer, ForeignKey("tbl_rol.id_rol"), nullable=False)
 
     # Relaciones

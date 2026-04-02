@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import get_current_rol, get_current_user_id, require_roles
+from app.core.security import, get_current_user_id, require_roles
 from app.schemas.reportes import (
     AuditoriaCreate,
     AuditoriaFiltros,
@@ -36,8 +36,7 @@ from app.services.reportes_service import ReportesService
 
 router = APIRouter(prefix="/reportes", tags=["Reportes y Auditoría"])
 SOLO_ADMIN = ("Administrador",)
-# R-002 FIX: Comercializador puede solicitar reportes de mercado
-ADMIN_O_COMERCIALIZADOR = ("Administrador", "Comercializador")
+ADMIN_O_COMERCIALIZADOR = ("Administrador", "Comercializador")  # R-002/E-07 FIX
 
 
 @router.get(
@@ -73,7 +72,7 @@ def solicitar_reporte(
     solicitud:  ReporteSolicitud,
     request:    Request,
     usuario_id: int = Depends(get_current_user_id),
-    _rol:       str = Depends(require_roles(*SOLO_ADMIN)),
+    _rol:       str = Depends(require_roles(*ADMIN_O_COMERCIALIZADOR)),  # E-07 FIX: R-002b
     db:         Session = Depends(get_db),
 ) -> ReporteResponse:
     # Obtener nombre del usuario del token (si viene)

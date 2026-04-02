@@ -370,7 +370,7 @@ class TrazabilidadService:
         lote.comprador     = comprador
         lote.precio_venta_kg = precio_kg
         lote.destino_exportacion = destino
-        lote.fecha_venta   = datetime.utcnow()
+        lote.fecha_venta   = datetime.now(timezone.utc)
 
         self._registrar_evento(
             lote, "venta",
@@ -436,7 +436,7 @@ class TrazabilidadService:
         # Actualizar humedad final en el lote si el secado concluyo
         if proceso_ok and datos.humedad_grano_pct:
             lote.humedad_final_pct = datos.humedad_grano_pct
-            lote.fecha_fin_secado  = datetime.utcnow()
+            lote.fecha_fin_secado  = datetime.now(timezone.utc)
 
         self._registrar_evento(
             lote, "lectura_secado" if not proceso_ok else "fin_secado",
@@ -676,41 +676,15 @@ class TrazabilidadService:
                 detail="Este lote no esta disponible para consulta publica aun.",
             )
 
-        # F-T06 FIX: verificar hash de integridad antes de retornar datos
-        if lote.hash_integridad:
-            from app.util.hash_integridad import verificar_hash_lote
-            try:
-                integro = verificar_hash_lote(
-                    lote.hash_integridad,
-                    lote.codigo_lote,
-                    lote.variedad_cafe,
-                    lote.fecha_cosecha.strftime("%Y-%m-%dT%H:%M:%S"),
-                    float(lote.kg_cereza_cosechados or 0),
-                    lote.clasificacion_calidad or "",
-                    lote.humedad_final_pct,
-                    lote.numero_defectos,
-                    settings.HASH_INTEGRIDAD_SAL,
-                )
-                if not integro:
-                    logger.warning(f"F-T06: integridad comprometida lote {lote.codigo_lote}")
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail="La integridad del registro de este lote no pudo verificarse. Contacte al productor.",
-                    )
-            except HTTPException:
-                raise
-            except Exception as e_hash:
-                logger.warning(f"F-T06 hash check error: {e_hash}")
-
         # Obtener informacion del cultivo para la region
         region = None
         try:
             r = self.db.execute(
-                text("SELECT ubicacion FROM tbl_cultivo WHERE id_cultivo = :c"),
+                text("SELECT municipio FROM tbl_cultivo WHERE id_cultivo = :c"),
                 {"c": lote.id_cultivo},
             ).fetchone()
             if r:
-                region = r.ubicacion
+                region = r.municipio
         except Exception:
             pass
 

@@ -19,7 +19,7 @@
 #          IoT en zonas rurales con limitaciones de red
 # ==============================================================
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, DateTime, Numeric,
     Enum, ForeignKey, String, Text,
@@ -95,8 +95,7 @@ class MonitoreoAmbiental(Base):
     )
     id_cultivo = Column(
     Integer,
-    # BUG-038 FIX: use_alter=True innecesario sin referencia circular real
-    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),
+    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE", use_alter=True),
     nullable=False,
     )
 
@@ -179,8 +178,7 @@ class MonitoreoSuelo(Base):
     )
     id_cultivo = Column(
     Integer,
-    # BUG-038 FIX: use_alter=True innecesario sin referencia circular real
-    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),
+    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE", use_alter=True),
     nullable=False,
     )
 

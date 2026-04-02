@@ -7,7 +7,7 @@
 
 import re
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -24,23 +24,6 @@ class CultivoCreate(BaseModel):
     variedad_cafe:  Optional[str] = None
     fecha_siembra:  Optional[datetime] = None
     observaciones:  Optional[str] = None
-
-    VARIEDADES_VALIDAS = {
-        "castillo", "colombia", "caturra", "cenicafe_1",
-        "tabi", "bourbon", "typica", "otro",
-    }
-
-    @field_validator("variedad_cafe")
-    @classmethod
-    def variedad_valida(cls, v: Optional[str]) -> Optional[str]:
-        # F-C06 FIX: validar contra catálogo oficial para evitar
-        # errores cuando Trazabilidad intenta mapear la variedad al Enum
-        if v is None:
-            return v
-        v_lower = v.lower().replace(" ", "_")
-        if v_lower in cls.VARIEDADES_VALIDAS:
-            return v_lower
-        return "otro"  # mapear desconocidos a "otro" en lugar de fallar
 
     @field_validator("nombre_cultivo")
     @classmethod

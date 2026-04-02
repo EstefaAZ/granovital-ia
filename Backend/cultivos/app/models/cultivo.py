@@ -14,7 +14,7 @@
 #   RNF-09 Interoperabilidad con dispositivos externos
 # ==============================================================
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, String, DateTime,
     Numeric, Enum, ForeignKey, Text,
@@ -70,7 +70,7 @@ class Cultivo(Base):
         comment="Ciclo de vida del cultivo segun diagrama de estados",
     )
     observaciones  = Column(Text, nullable=True)
-    fecha_registro = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_registro = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     id_usuario = Column(
     Integer,
     ForeignKey("tbl_usuario.id_usuario", ondelete="CASCADE"),
@@ -143,7 +143,7 @@ class Lote(Base):
         comment="Ciclo de vida del lote segun diagrama de estados",
     )
     observaciones  = Column(Text, nullable=True)
-    fecha_registro = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_registro = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     id_cultivo     = Column(
         Integer,
         ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE"),

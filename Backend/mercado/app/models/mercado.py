@@ -30,7 +30,7 @@
 # en zonas rurales con conectividad limitada (RNF-10).
 # ==============================================================
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column, DateTime, Enum, Float, ForeignKey,
     Integer, Numeric, String, Text, Boolean,
@@ -94,7 +94,7 @@ class PrecioMercado(Base):
         DateTime, nullable=False,
         comment="Fecha a la que corresponde el precio (no la fecha de ingreso)",
     )
-    fecha_registro     = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_registro     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (
@@ -148,7 +148,7 @@ class AnalisisPrecio(Base):
     )
     version_metodologia = Column(String(30), default="wma-3-periodos-1.0")
     id_usuario         = Column(Integer, nullable=False)
-    fecha_analisis     = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_analisis     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (
@@ -213,7 +213,7 @@ class AnalisisDemanda(Base):
     )
     recomendacion          = Column(Text, nullable=False)
     id_usuario             = Column(Integer, nullable=False)
-    fecha_analisis         = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_analisis         = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (

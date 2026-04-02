@@ -6,6 +6,7 @@
 
 import logging
 from fastapi import APIRouter, Depends, Request, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials  # E-05 FIX
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -123,30 +124,20 @@ def refresh_token(
     description="Invalida la sesión actual del usuario. El cliente debe eliminar los tokens localmente.",
 )
 def logout(
-    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     payload: dict = Depends(get_current_user_payload),
 ) -> MensajeResponse:
     """
-    BUG-044 FIX: Agrega el token a la blacklist de Redis con TTL
-    igual al tiempo restante de expiración. Si Redis no está
-    disponible, el logout funciona igual (solo client-side).
+    El logout en JWT se gestiona principalmente en el cliente
+    (eliminando los tokens del almacenamiento local).
+
+    En una implementación con Redis se puede agregar el jti (JWT ID)
+    a una blacklist para invalidar el token antes de su expiración.
     """
     user_id = payload.get("sub")
-    jti     = payload.get("jti") or payload.get("sub", "")
-    exp     = payload.get("exp", 0)
-
-    if _redis:
-        try:
-            import time
-            ttl = max(int(exp - time.time()), 1)
-            _redis.setex(f"blacklist:{jti}", ttl, "1")
-            logger.info(f"Token añadido a blacklist Redis: jti={jti} ttl={ttl}s")
-        except Exception as e:
-            logger.warning(f"No se pudo añadir token a blacklist Redis: {e}")
-
     logger.info(f"Logout: usuario_id={user_id}")
+
     return MensajeResponse(
-        mensaje="Sesión cerrada correctamente.",
+        mensaje="Sesión cerrada correctamente. Por favor elimina los tokens del almacenamiento local.",
         exitoso=True,
     )
 

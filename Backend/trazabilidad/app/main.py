@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION}")
-    logger.info(f"RN-04: sal de hash = configurada")
+    logger.info(f"RN-04: sal de hash configurada = {bool(settings.HASH_INTEGRIDAD_SAL)}")  # E-09 FIX
     logger.info(f"RF-11: humedad objetivo secado = {settings.SECADO_HUMEDAD_OBJETIVO}%")
     logger.info(f"RF-11: horas minimas secado = {settings.SECADO_HORAS_MINIMAS}h")
     logger.info(f"RN-05: URL base QR = {settings.URL_BASE_SISTEMA}")

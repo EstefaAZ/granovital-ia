@@ -19,7 +19,7 @@
 #   deben subsistir aunque se eliminen los registros originales.
 # ==============================================================
 
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import (
     Boolean, Column, DateTime, Enum, Integer,
     String, Text,
@@ -91,7 +91,7 @@ class Reporte(Base):
         String(150), nullable=True,
         comment="Desnormalizado para que el log sea autocontenido",
     )
-    fecha_solicitud = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)  # BUG-021 FIX)
+    fecha_solicitud = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     fecha_generado  = Column(DateTime, nullable=True)
     fecha_descarga  = Column(DateTime, nullable=True)
 
@@ -148,7 +148,7 @@ class RegistroAuditoria(Base):
         Text, nullable=True,
         comment="JSON del valor después del cambio",
     )
-    fecha_evento   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)  # BUG-021 FIX)
+    fecha_evento   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (

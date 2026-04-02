@@ -24,7 +24,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, status
@@ -80,7 +80,7 @@ class ReportesService:
         """
         nombre_auto = solicitud.nombre or (
             f"Reporte {solicitud.tipo_reporte.title()} "
-            f"{datetime.utcnow().strftime('%d/%m/%Y %H:%M')}"
+            f"{datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M')}"
         )
         params_json = json.dumps({
             "fecha_inicio": solicitud.fecha_inicio.isoformat() if solicitud.fecha_inicio else None,
@@ -129,7 +129,7 @@ class ReportesService:
             reporte.nombre_archivo = resultado["nombre_archivo"]
             reporte.tamano_bytes   = resultado["tamano_bytes"]
             reporte.num_registros  = resultado["num_registros"]
-            reporte.fecha_generado = datetime.utcnow()
+            reporte.fecha_generado = datetime.now(timezone.utc)
             self.db.commit()
 
             logger.info(
@@ -204,7 +204,7 @@ class ReportesService:
         # Transición a descargado
         if r.estado == "disponible":
             r.estado         = "descargado"
-            r.fecha_descarga = datetime.utcnow()
+            r.fecha_descarga = datetime.now(timezone.utc)
             self.db.commit()
 
         self._registrar_auditoria_interna(
@@ -341,7 +341,7 @@ class ReportesService:
         Consulta todas las tablas del sistema via SQL directo.
         Si alguna tabla no existe (módulo no desplegado), retorna 0.
         """
-        ahora      = datetime.utcnow()
+        ahora      = datetime.now(timezone.utc)
         hace_7dias = ahora - timedelta(days=7)
         hoy_inicio = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -359,9 +359,9 @@ class ReportesService:
             ),
             total_cultivos      = _count("SELECT COUNT(*) FROM tbl_cultivo"),
             total_lotes         = _count("SELECT COUNT(*) FROM tbl_lote"),
-            total_analisis_ia   = _count("SELECT COUNT(*) FROM tbl_analisis_imagen"  # BUG-009 FIX),
+            total_analisis_ia   = _count("SELECT COUNT(*) FROM tbl_analisis_imagen"),  # BUG-009 FIX
             analisis_ultima_semana = _count(
-                "SELECT COUNT(*) FROM tbl_analisis_imagen WHERE fecha_analisis >= :f",
+                "SELECT COUNT(*) FROM tbl_analisis_imagen WHERE fecha_analisis >= :f",  # BUG-009 FIX
                 {"f": hace_7dias},
             ),
             lotes_en_proceso    = _count(
@@ -435,14 +435,14 @@ class ReportesService:
             {"indicador": "Reportes generados",       "valor": resumen.reportes_generados},
         ]
         return datos, ["indicador", "valor"], ["Indicador", "Valor"], {
-            "Fecha generación": datetime.utcnow().strftime("%d/%m/%Y %H:%M"),
+            "Fecha generación": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"),
             "Sistema":          settings.NOMBRE_ORGANIZACION,
         }
 
     def _datos_cultivos(self, fi, ff):
         filas = self._q("""
             SELECT c.id_cultivo, c.nombre_cultivo, c.ubicacion,
-                   c.fecha_siembra, c.variedad_cafe,  -- BUG-009 FIX
+                   c.fecha_siembra, c.variedad,
                    u.nombre, u.apellido,
                    COUNT(l.id_lote) AS num_lotes
             FROM   tbl_cultivo c
@@ -511,7 +511,7 @@ class ReportesService:
             SELECT a.id_analisis, a.resultado, a.recomendacion,
                    a.fecha_analisis, c.nombre_cultivo, c.ubicacion
             FROM   tbl_analisis_imagen a  -- BUG-009 FIX
-            JOIN   tbl_cultivo         c ON a.id_cultivo = c.id_cultivo
+            JOIN   tbl_cultivo     c ON a.id_cultivo = c.id_cultivo
             WHERE  1=1 {filtro}
             ORDER BY a.fecha_analisis DESC
         """, params)
@@ -535,17 +535,14 @@ class ReportesService:
             filtro += " AND s.fecha_lectura <= :ff"; params["ff"] = ff
 
         filas = self._q(f"""
-            -- BUG-009 FIX: tbl_lectura_sensor no existe
-            SELECT 'ambiental' AS tipo_sensor,
-                   CONCAT('T:', a.temperatura, ' H:', a.humedad_relativa) AS valor,
-                   'varios' AS unidad,
-                   a.fecha_registro AS fecha_lectura,
-                   CASE WHEN a.temperatura > 35 OR a.humedad_relativa > 95 THEN 1 ELSE 0 END AS alerta_activa,
+            SELECT s.tipo_sensor, s.valor, s.unidad,
+                   s.fecha_lectura, s.alerta_activa,
                    c.nombre_cultivo
-            FROM   tbl_monitoreo_ambiental a
-            JOIN   tbl_cultivo             c ON a.id_cultivo = c.id_cultivo
+            FROM   tbl_lectura_sensor s
+            JOIN   tbl_sensor         se ON s.id_sensor = se.id_sensor
+            JOIN   tbl_cultivo        c  ON se.id_cultivo = c.id_cultivo
             WHERE  1=1 {filtro}
-            ORDER BY a.fecha_registro DESC
+            ORDER BY s.fecha_lectura DESC
             LIMIT 500
         """, params)
         datos = [dict(zip(

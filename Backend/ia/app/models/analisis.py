@@ -14,7 +14,7 @@
 # Esto permite auditar y comparar versiones (RNF-08)
 # ==============================================================
 
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, DateTime, Numeric,
     Enum, ForeignKey, Text, LargeBinary, Float,
@@ -80,7 +80,7 @@ class AnalisisImagen(Base):
     # Nombre del archivo original subido por el usuario
     nombre_imagen      = Column(String(200), nullable=True)
     tamano_imagen_kb   = Column(Integer, nullable=True)
-    fecha_analisis     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)  # BUG-021 FIX)
+    fecha_analisis     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     # BUG-004 FIX: ForeignKey real en SQLAlchemy (antes era solo un comentario)
     id_cultivo = Column(
         Integer,
@@ -132,7 +132,7 @@ class PrediccionFitosanitaria(Base):
     humedad_usada      = Column(Float, nullable=True)
     precipitacion_usada = Column(Float, nullable=True)
     version_modelo     = Column(String(30), nullable=True)
-    fecha_prediccion   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)  # BUG-021 FIX)
+    fecha_prediccion   = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     # BUG-004 FIX: ForeignKey real en SQLAlchemy (antes era solo un comentario)
     id_cultivo = Column(
         Integer,
@@ -177,7 +177,7 @@ class RecomendacionRiego(Base):
     temperatura_usada   = Column(Float, nullable=True)
     precipitacion_usada = Column(Float, nullable=True)
     version_modelo      = Column(String(30), nullable=True)
-    fecha_recomendacion = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)  # BUG-021 FIX)
+    fecha_recomendacion = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     # BUG-004 FIX: ForeignKey real en SQLAlchemy (antes era solo un comentario)
     id_cultivo = Column(
         Integer,
@@ -228,7 +228,7 @@ class RecomendacionFertilizacion(Base):
     potasio_usado       = Column(Float, nullable=True)
     materia_organica_usada = Column(Float, nullable=True)
     version_modelo      = Column(String(30), nullable=True)
-    fecha_recomendacion = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)  # BUG-021 FIX)
+    fecha_recomendacion = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     # BUG-004 FIX: ForeignKey real en SQLAlchemy (antes era solo un comentario)
     id_cultivo = Column(
         Integer,

@@ -24,7 +24,7 @@
 # ==============================================================
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column, DateTime, Enum, Float, ForeignKey,
     Integer, Numeric, String, Text, Boolean,
@@ -152,8 +152,8 @@ class TrazabilidadLote(Base):
     comment="FK a tbl_cultivo - integridad gestionada por MySQL",
     )
     id_usuario_creador   = Column(Integer, nullable=False)
-    fecha_creacion       = Column(DateTime, nullable=False, default=datetime.utcnow)
-    fecha_actualizacion  = Column(DateTime, nullable=True, onupdate=datetime.utcnow)
+    fecha_creacion       = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    fecha_actualizacion  = Column(DateTime, nullable=True, onupdate=lambda: datetime.now(timezone.utc))
 
     def calcular_hash(self, sal: str = "") -> str:
         """
@@ -216,7 +216,7 @@ class EventoTrazabilidad(Base):
         nullable=False,
     )
     id_usuario       = Column(Integer, nullable=False)
-    fecha_evento     = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_evento     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     ip_origen        = Column(String(45), nullable=True)
 
     def __repr__(self):
@@ -277,7 +277,7 @@ class ControlSecado(Base):
         nullable=False,
     )
     id_usuario          = Column(Integer, nullable=False)
-    fecha_lectura       = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_lectura       = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (
@@ -344,7 +344,7 @@ class ClasificacionGrano(Base):
         nullable=False,
     )
     id_usuario         = Column(Integer, nullable=False)
-    fecha_clasificacion = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_clasificacion = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (

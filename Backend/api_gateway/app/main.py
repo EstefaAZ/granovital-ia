@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Iniciando {settings.APP_NAME} v{settings.APP_VERSION}")
-    logger.info(f"Microservicios registrados:")
+    logger.info("Microservicios registrados:")  # E-10 FIX: no era necesario el f-prefix
     logger.info(f"  Auth         → {settings.URL_AUTH}")
     logger.info(f"  Cultivos     → {settings.URL_CULTIVOS}")
     logger.info(f"  Monitoreo    → {settings.URL_MONITOREO}")

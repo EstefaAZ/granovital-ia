@@ -70,19 +70,19 @@ class IAService:
     # ----------------------------------------------------------
 
     def _verificar_acceso_cultivo(self, cultivo_id: int, usuario_id: int) -> None:
-        # F-INT01 FIX: solo permitir análisis en cultivos activos
-    r = self.db.execute(
+        # F-INT01 FIX: verificar propiedad antes de análisis
+        r = self.db.execute(
             text(
                 "SELECT id_cultivo FROM tbl_cultivo "
                 "WHERE id_cultivo = :c AND id_usuario = :u "
-                "AND estado NOT IN ('eliminado', 'finalizado')"
+                "AND estado != 'eliminado'"
             ),
             {"c": cultivo_id, "u": usuario_id},
         ).fetchone()
         if not r:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Cultivo {cultivo_id} no encontrado, no es tuyo, o está finalizado/eliminado.",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Cultivo {cultivo_id} no encontrado o sin acceso.",
             )
 
     def _obtener_ultima_ambiental(self, cultivo_id: int) -> Optional[dict]:

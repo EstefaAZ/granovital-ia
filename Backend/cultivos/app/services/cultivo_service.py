@@ -144,7 +144,7 @@ class CultivoService:
         cultivo = self.obtener_cultivo(cultivo_id, usuario_id)
 
         if datos.estado:
-            self._validar_transicion_cultivo(cultivo.estado, datos.estado)  # N-001 FIX: 2 args
+            self._validar_transicion_cultivo(cultivo.estado, datos.estado)
 
         campos = datos.model_dump(exclude_unset=True)
         for campo, valor in campos.items():
@@ -463,8 +463,8 @@ class CultivoService:
         """
         resultado = self.db.execute(
             text(
-                "SELECT COUNT(*) FROM tbl_trazabilidad "
-                "WHERE id_lote = :lote_id AND etapa = 'comercializacion'"
+                "SELECT COUNT(*) FROM tbl_trazabilidad_lote "
+                "WHERE id_lote = :lote_id AND estado IN ('aprobado','vendido')"  -- BUG-023 FIX
             ),
             {"lote_id": lote_id},
         ).scalar()
@@ -478,7 +478,7 @@ class CultivoService:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=(
                     "RN-02: Este lote no puede marcarse como 'vendido' todavia. "
-                    "Primero debe registrar la etapa 'comercializacion' "
+                    "El lote debe estar aprobado o vendido en trazabilidad antes de comercializar. "
                     "en el modulo de Trazabilidad."
                 ),
             )
