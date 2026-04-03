@@ -464,7 +464,7 @@ class CultivoService:
         resultado = self.db.execute(
             text(
                 "SELECT COUNT(*) FROM tbl_trazabilidad_lote "
-                "WHERE id_lote = :lote_id AND estado IN ('aprobado','vendido')"  -- BUG-023 FIX
+                "WHERE id_lote = :lote_id AND estado IN ('aprobado','vendido')"  # BUG-023 FIX
             ),
             {"lote_id": lote_id},
         ).scalar()
@@ -478,7 +478,7 @@ class CultivoService:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=(
                     "RN-02: Este lote no puede marcarse como 'vendido' todavia. "
-                    "El lote debe estar aprobado o vendido en trazabilidad antes de comercializar. "
+                    "Primero debe registrar la etapa 'comercializacion' "
                     "en el modulo de Trazabilidad."
                 ),
             )

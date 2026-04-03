@@ -6,7 +6,6 @@
 
 import logging
 from fastapi import APIRouter, Depends, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials  # E-05 FIX
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db

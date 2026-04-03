@@ -309,8 +309,7 @@ class MonitoreoService:
         """
         self._verificar_acceso_cultivo(cultivo_id, usuario_id)
 
-        ahora  = datetime.now(timezone.utc)
-        limite = timedelta(hours=settings.HORAS_DATOS_VALIDOS)
+        ahora  = datetime.now(timezone.utc)  # L-02 FIX: 'limite' no se usaba
 
         # Ultima lectura ambiental
         ult_amb = (
@@ -453,8 +452,8 @@ class MonitoreoService:
 
         if not validez.ambos_validos:
             alertas.append(
-                f"Datos desactualizados: registre lecturas nuevas para "
-                f"habilitar recomendaciones de IA (RN-03)"
+                "Datos desactualizados: registre lecturas nuevas para "
+                "habilitar recomendaciones de IA (RN-03)"  # L-03 FIX
             )
 
         return ResumenMonitoreoResponse(

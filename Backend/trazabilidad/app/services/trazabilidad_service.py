@@ -40,7 +40,7 @@ from app.schemas.trazabilidad import (
     LoteResponse, LoteUpdate, ResumenSecadoResponse,
     SecadoCreate, SecadoResponse, TransicionEstadoResponse,
 )
-from app.util.qr_generator import generar_url_qr, generar_svg_qr
+from app.util.qr_generator import generar_url_qr  # L: generar_svg_qr no se usa
 
 logger = logging.getLogger(__name__)
 
@@ -370,7 +370,7 @@ class TrazabilidadService:
         lote.comprador     = comprador
         lote.precio_venta_kg = precio_kg
         lote.destino_exportacion = destino
-        lote.fecha_venta   = datetime.now(timezone.utc)
+        lote.fecha_venta   = datetime.utcnow()
 
         self._registrar_evento(
             lote, "venta",
@@ -436,7 +436,7 @@ class TrazabilidadService:
         # Actualizar humedad final en el lote si el secado concluyo
         if proceso_ok and datos.humedad_grano_pct:
             lote.humedad_final_pct = datos.humedad_grano_pct
-            lote.fecha_fin_secado  = datetime.now(timezone.utc)
+            lote.fecha_fin_secado  = datetime.utcnow()
 
         self._registrar_evento(
             lote, "lectura_secado" if not proceso_ok else "fin_secado",

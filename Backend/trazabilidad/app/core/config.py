@@ -11,7 +11,7 @@
 # ==============================================================
 
 from pydantic_settings import BaseSettings
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr
 
 
 class Settings(BaseSettings):

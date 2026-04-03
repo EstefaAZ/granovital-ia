@@ -70,7 +70,6 @@ class IAService:
     # ----------------------------------------------------------
 
     def _verificar_acceso_cultivo(self, cultivo_id: int, usuario_id: int) -> None:
-        # F-INT01 FIX: verificar propiedad antes de análisis
         r = self.db.execute(
             text(
                 "SELECT id_cultivo FROM tbl_cultivo "
@@ -124,8 +123,7 @@ class IAService:
         Lanza HTTP 422 con mensaje claro si los datos estan caducados.
         Retorna (datos_ambiental, datos_suelo).
         """
-        limite    = timedelta(hours=settings.HORAS_DATOS_VALIDOS)
-        ahora     = datetime.now(timezone.utc)
+        ahora     = datetime.now(timezone.utc)  # L-01 FIX: 'limite' no se usaba
         amb       = None
         sue       = None
 

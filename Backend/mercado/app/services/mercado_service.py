@@ -16,13 +16,12 @@
 #   Esto garantiza coherencia y no requiere sincronización manual.
 # ==============================================================
 
-import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, text
+from sqlalchemy import, text
 from sqlalchemy.orm import Session
 
 from app.analisis.motor_mercado import (
@@ -140,7 +139,7 @@ class MercadoService:
         meses:      int           = 6,
     ) -> List[PrecioResponse]:
         """Lista el histórico de precios con filtros opcionales."""
-        desde = datetime.now(timezone.utc) - timedelta(days=meses * 30)
+        desde = datetime.utcnow() - timedelta(days=meses * 30)
         q = self.db.query(PrecioMercado).filter(
             PrecioMercado.fecha_precio >= desde
         )
@@ -173,7 +172,7 @@ class MercadoService:
         # Paso 1: sincronizar ventas propias
         self.sincronizar_ventas_propias(usuario_id)
 
-        ahora    = datetime.now(timezone.utc)
+        ahora    = datetime.utcnow()
         inicio   = ahora - timedelta(days=meses_analisis * 30)
         inicio_a = inicio - timedelta(days=meses_analisis * 30)  # período anterior
 
@@ -287,7 +286,7 @@ class MercadoService:
         RF-13: retorna el histórico mensual de precios para gráficas.
         Agrupa por mes y fuente para mostrar comparativas FNC vs propio.
         """
-        desde = datetime.now(timezone.utc) - timedelta(days=meses * 30)
+        desde = datetime.utcnow() - timedelta(days=meses * 30)
         registros = (
             self.db.query(PrecioMercado)
             .filter(
@@ -352,7 +351,7 @@ class MercadoService:
         registrados en tbl_precio_mercado como fallback.
         """
         meses_analisis = meses or settings.MESES_HISTORICO_DEMANDA
-        ahora  = datetime.now(timezone.utc)
+        ahora  = datetime.utcnow()
         inicio = ahora - timedelta(days=meses_analisis * 30)
         inicio_anterior = inicio - timedelta(days=meses_analisis * 30)
 
@@ -438,7 +437,7 @@ class MercadoService:
         Combina precio actual, stock disponible, demanda del mes
         y proyección para apoyar decisiones comerciales (RF-13 + RF-14).
         """
-        ahora  = datetime.now(timezone.utc)
+        ahora  = datetime.utcnow()
         inicio = ahora - timedelta(days=30)
 
         # Sincronizar ventas propias antes del dashboard
@@ -643,7 +642,7 @@ class MercadoService:
         self, tipo_cafe: str, fuente: str, num_meses: int
     ) -> List[float]:
         """Retorna lista de promedios mensuales para proyección WMA-3."""
-        desde = datetime.now(timezone.utc) - timedelta(days=num_meses * 30)
+        desde = datetime.utcnow() - timedelta(days=num_meses * 30)
         q = self.db.query(PrecioMercado).filter(
             PrecioMercado.fecha_precio >= desde,
             PrecioMercado.tipo_cafe == tipo_cafe,
