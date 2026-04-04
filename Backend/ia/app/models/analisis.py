@@ -16,9 +16,9 @@
 
 from datetime import datetime, timezone  # C-01 FIX
 from sqlalchemy import (
-    Column, Integer, String, DateTime, Numeric,
-    Enum, ForeignKey, Text, Float,
+    Enum, ForeignKey, Text,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
 
@@ -43,52 +43,51 @@ class AnalisisImagen(Base):
     """
     __tablename__ = "tbl_analisis_imagen"
 
-    id_analisis        = Column(Integer, primary_key=True, autoincrement=True)
-    tipo_analisis      = Column(
+    id_analisis: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    tipo_analisis: Mapped[str] = mapped_column(
         Enum("enfermedad", "plaga"),
         nullable=False,
         comment="RF-05 enfermedad | RF-06 plaga",
     )
-    diagnostico        = Column(
-        String(120), nullable=False,
+    diagnostico: Mapped[str] = mapped_column(
+        nullable=False,
         comment="Clase predicha por el modelo (ej: Roya, Broca, Sano)",
     )
-    confianza          = Column(
-        Float, nullable=False,
+    confianza: Mapped[float] = mapped_column(
+        nullable=False,
         comment="Probabilidad de la clase predicha (0.0 - 1.0)",
     )
     # Top-3 de clases con sus probabilidades en formato JSON
-    top_clases         = Column(
+    top_clases: Mapped[str] = mapped_column(
         Text, nullable=True,
         comment='JSON: [{"clase":"Roya","prob":0.92}, ...]',
     )
-    recomendacion      = Column(
+    recomendacion: Mapped[str] = mapped_column(
         Text, nullable=False,
         comment="Recomendacion tecnica generada segun el diagnostico",
     )
-    nivel_urgencia     = Column(
+    nivel_urgencia: Mapped[str] = mapped_column(
         Enum("bajo", "medio", "alto", "critico"),
         nullable=False,
         default="medio",
     )
     # Metadata del modelo para trazabilidad RNF-08
-    version_modelo     = Column(String(30), nullable=True)
-    tiempo_inferencia  = Column(
-        Float, nullable=True,
+    version_modelo: Mapped[str] = mapped_column(nullable=True)
+    tiempo_inferencia: Mapped[float] = mapped_column(
+        nullable=True,
         comment="Tiempo de inferencia en segundos - control RNF-01",
     )
     # Nombre del archivo original subido por el usuario
-    nombre_imagen      = Column(String(200), nullable=True)
-    tamano_imagen_kb   = Column(Integer, nullable=True)
-    fecha_analisis     = Column(DateTime, nullable=False, default=datetime.utcnow)
+    nombre_imagen: Mapped[str] = mapped_column(nullable=True)
+    tamano_imagen_kb: Mapped[int] = mapped_column(nullable=True)
+    fecha_analisis: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
     # BUG-004 FIX: ForeignKey real en SQLAlchemy (antes era solo un comentario)
-    id_cultivo = Column(
-        Integer,
+    id_cultivo: Mapped[int] = mapped_column(
         ForeignKey("tbl_cultivo.id_cultivo", ondelete="RESTRICT", use_alter=True),
         nullable=False,
         comment="FK a tbl_cultivo con integridad referencial real",
     )
-    id_usuario         = Column(Integer, nullable=False)
+    id_usuario: Mapped[int] = mapped_column(nullable=False)
 
     def __repr__(self):
         return (
@@ -111,36 +110,35 @@ class PrediccionFitosanitaria(Base):
     """
     __tablename__ = "tbl_prediccion_fito"
 
-    id_prediccion      = Column(Integer, primary_key=True, autoincrement=True)
-    nivel_riesgo       = Column(
+    id_prediccion: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    nivel_riesgo: Mapped[str] = mapped_column(
         Enum("bajo", "moderado", "alto", "critico"),
         nullable=False,
     )
-    probabilidad_riesgo = Column(Float, nullable=False)
+    probabilidad_riesgo: Mapped[float] = mapped_column(nullable=False)
     # Factores de riesgo detectados
-    factores_riesgo    = Column(
+    factores_riesgo: Mapped[str] = mapped_column(
         Text, nullable=True,
         comment='JSON: ["humedad_alta", "temperatura_optima_roya"]',
     )
-    enfermedades_prob  = Column(
+    enfermedades_prob: Mapped[str] = mapped_column(
         Text, nullable=True,
         comment='JSON: {"Roya": 0.78, "Mancha_Hierro": 0.45}',
     )
-    recomendacion      = Column(Text, nullable=False)
+    recomendacion: Mapped[str] = mapped_column(Text, nullable=False)
     # Snapshot de datos usados (para auditoria RNF-08)
-    temperatura_usada  = Column(Float, nullable=True)
-    humedad_usada      = Column(Float, nullable=True)
-    precipitacion_usada = Column(Float, nullable=True)
-    version_modelo     = Column(String(30), nullable=True)
-    fecha_prediccion   = Column(DateTime, nullable=False, default=datetime.utcnow)
+    temperatura_usada: Mapped[float] = mapped_column(nullable=True)
+    humedad_usada: Mapped[float] = mapped_column(nullable=True)
+    precipitacion_usada: Mapped[float] = mapped_column(nullable=True)
+    version_modelo: Mapped[str] = mapped_column(nullable=True)
+    fecha_prediccion: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
     # BUG-004 FIX: ForeignKey real en SQLAlchemy (antes era solo un comentario)
-    id_cultivo = Column(
-        Integer,
+    id_cultivo: Mapped[int] = mapped_column(
         ForeignKey("tbl_cultivo.id_cultivo", ondelete="RESTRICT", use_alter=True),
         nullable=False,
         comment="FK a tbl_cultivo con integridad referencial real",
     )
-    id_usuario         = Column(Integer, nullable=False)
+    id_usuario: Mapped[int] = mapped_column(nullable=False)
 
 
 class RecomendacionRiego(Base):
@@ -153,39 +151,38 @@ class RecomendacionRiego(Base):
     """
     __tablename__ = "tbl_recomendacion_riego"
 
-    id_reco            = Column(Integer, primary_key=True, autoincrement=True)
-    necesita_riego     = Column(
+    id_reco: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    necesita_riego: Mapped[str] = mapped_column(
         Enum("si", "no", "condicional"),
         nullable=False,
     )
-    cantidad_litros_m2 = Column(
-        Numeric(8, 2), nullable=True,
+    cantidad_litros_m2: Mapped[float] = mapped_column(
+        nullable=True,
         comment="Litros por metro cuadrado recomendados",
     )
-    frecuencia_dias    = Column(Integer, nullable=True)
-    momento_optimo     = Column(
+    frecuencia_dias: Mapped[int] = mapped_column(nullable=True)
+    momento_optimo: Mapped[str] = mapped_column(
         Enum("manana", "tarde", "noche", "cualquiera"),
         nullable=True,
     )
-    justificacion      = Column(Text, nullable=False)
-    recomendacion      = Column(Text, nullable=False)
-    nivel_urgencia     = Column(
+    justificacion: Mapped[str] = mapped_column(Text, nullable=False)
+    recomendacion: Mapped[str] = mapped_column(Text, nullable=False)
+    nivel_urgencia: Mapped[str] = mapped_column(
         Enum("bajo", "medio", "alto"), nullable=False, default="medio"
     )
     # Snapshot datos entrada
-    humedad_suelo_usada = Column(Float, nullable=True)
-    temperatura_usada   = Column(Float, nullable=True)
-    precipitacion_usada = Column(Float, nullable=True)
-    version_modelo      = Column(String(30), nullable=True)
-    fecha_recomendacion = Column(DateTime, nullable=False, default=datetime.utcnow)
+    humedad_suelo_usada: Mapped[float] = mapped_column(nullable=True)
+    temperatura_usada: Mapped[float] = mapped_column(nullable=True)
+    precipitacion_usada: Mapped[float] = mapped_column(nullable=True)
+    version_modelo: Mapped[str] = mapped_column(nullable=True)
+    fecha_recomendacion: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
     # BUG-004 FIX: ForeignKey real en SQLAlchemy (antes era solo un comentario)
-    id_cultivo = Column(
-        Integer,
+    id_cultivo: Mapped[int] = mapped_column(
         ForeignKey("tbl_cultivo.id_cultivo", ondelete="RESTRICT", use_alter=True),
         nullable=False,
         comment="FK a tbl_cultivo con integridad referencial real",
     )
-    id_usuario          = Column(Integer, nullable=False)
+    id_usuario: Mapped[int] = mapped_column(nullable=False)
 
 
 class RecomendacionFertilizacion(Base):
@@ -198,42 +195,41 @@ class RecomendacionFertilizacion(Base):
     """
     __tablename__ = "tbl_recomendacion_fert"
 
-    id_reco_fert       = Column(Integer, primary_key=True, autoincrement=True)
-    tipo_fertilizante  = Column(
-        String(120), nullable=False,
+    id_reco_fert: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    tipo_fertilizante: Mapped[str] = mapped_column(
+        nullable=False,
         comment="Ej: Urea, DAP, KCl, Fertilizante completo 17-6-18-2",
     )
-    dosis_kg_ha        = Column(
-        Numeric(8, 2), nullable=True,
+    dosis_kg_ha: Mapped[float] = mapped_column(
+        nullable=True,
         comment="Dosis recomendada en kg por hectarea",
     )
-    frecuencia_aplicacion = Column(String(80), nullable=True)
-    metodo_aplicacion  = Column(
+    frecuencia_aplicacion: Mapped[str] = mapped_column(nullable=True)
+    metodo_aplicacion: Mapped[str] = mapped_column(
         Enum("foliar", "edafico", "fertiriego", "cualquiera"),
         nullable=True,
     )
-    nutrientes_deficientes = Column(
+    nutrientes_deficientes: Mapped[str] = mapped_column(
         Text, nullable=True,
         comment='JSON: ["N", "P"] - nutrientes por debajo del minimo',
     )
-    justificacion      = Column(Text, nullable=False)
-    recomendacion      = Column(Text, nullable=False)
-    nivel_urgencia     = Column(
+    justificacion: Mapped[str] = mapped_column(Text, nullable=False)
+    recomendacion: Mapped[str] = mapped_column(Text, nullable=False)
+    nivel_urgencia: Mapped[str] = mapped_column(
         Enum("bajo", "medio", "alto"), nullable=False, default="medio"
     )
     # Snapshot datos entrada
-    ph_suelo_usado      = Column(Float, nullable=True)
-    nitrogeno_usado     = Column(Float, nullable=True)
-    fosforo_usado       = Column(Float, nullable=True)
-    potasio_usado       = Column(Float, nullable=True)
-    materia_organica_usada = Column(Float, nullable=True)
-    version_modelo      = Column(String(30), nullable=True)
-    fecha_recomendacion = Column(DateTime, nullable=False, default=datetime.utcnow)
+    ph_suelo_usado: Mapped[float] = mapped_column(nullable=True)
+    nitrogeno_usado: Mapped[float] = mapped_column(nullable=True)
+    fosforo_usado: Mapped[float] = mapped_column(nullable=True)
+    potasio_usado: Mapped[float] = mapped_column(nullable=True)
+    materia_organica_usada: Mapped[float] = mapped_column(nullable=True)
+    version_modelo: Mapped[str] = mapped_column(nullable=True)
+    fecha_recomendacion: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
     # BUG-004 FIX: ForeignKey real en SQLAlchemy (antes era solo un comentario)
-    id_cultivo = Column(
-        Integer,
+    id_cultivo: Mapped[int] = mapped_column(
         ForeignKey("tbl_cultivo.id_cultivo", ondelete="RESTRICT", use_alter=True),
         nullable=False,
         comment="FK a tbl_cultivo con integridad referencial real",
     )
-    id_usuario          = Column(Integer, nullable=False)
+    id_usuario: Mapped[int] = mapped_column(nullable=False)

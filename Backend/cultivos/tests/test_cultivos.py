@@ -44,6 +44,37 @@ def cultivo_mock(estado: str = "creado") -> MagicMock:
     return c
 
 
+def test_conversión_dto_cultivo_response():
+    """Verifica que la conversión de entidad ORM a DTO use valores esperados."""
+    from app.models.cultivo import Cultivo
+    from app.schemas.cultivo import CultivoResponse
+
+    cultivo = Cultivo(
+        id_cultivo=1,
+        nombre_cultivo="Finca La Esperanza",
+        ubicacion="Andes, Antioquia",
+        area_hectareas=3.5,
+        variedad_cafe="Castillo",
+        estado="creado",
+        id_usuario=10,
+        fecha_registro=datetime.utcnow(),
+    )
+    cultivo.lotes = []
+    cultivo.sensores = []
+
+    recurso = CultivoResponse(
+        **{c.name: getattr(cultivo, c.name) for c in cultivo.__table__.columns},
+        total_lotes=len(cultivo.lotes),
+        total_sensores=len(cultivo.sensores),
+    )
+
+    assert recurso.id_cultivo == 1
+    assert recurso.nombre_cultivo == "Finca La Esperanza"
+    assert recurso.area_hectareas == 3.5
+    assert recurso.total_lotes == 0
+    assert recurso.total_sensores == 0
+
+
 def lote_mock(estado: str = "registrado") -> MagicMock:
     l = MagicMock()
     l.id_lote       = 1

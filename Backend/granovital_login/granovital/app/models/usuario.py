@@ -5,11 +5,12 @@
 # =============================================================
 
 from datetime import datetime
+from typing import Optional
 from sqlalchemy import (
     Column, Integer, String, DateTime, Enum,
     ForeignKey, UniqueConstraint
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.core.database import Base
 
 
@@ -21,14 +22,14 @@ class Rol(Base):
     """
     __tablename__ = "tbl_rol"
 
-    id_rol        = Column(Integer, primary_key=True, autoincrement=True)
-    nombre_rol    = Column(String(50), nullable=False, unique=True)
-    descripcion   = Column(String(150), nullable=True)
-    fecha_creacion = Column(DateTime, nullable=False, default=datetime.utcnow)
+    id_rol: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nombre_rol: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    descripcion: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relaciones
-    usuarios   = relationship("Usuario", back_populates="rol")
-    permisos   = relationship("RolPermiso", back_populates="rol")
+    usuarios: Mapped[list["Usuario"]] = relationship("Usuario", back_populates="rol")
+    permisos: Mapped[list["RolPermiso"]] = relationship("RolPermiso", back_populates="rol")
 
     def __repr__(self) -> str:
         return f"<Rol id={self.id_rol} nombre='{self.nombre_rol}'>"
@@ -41,13 +42,13 @@ class Permiso(Base):
     """
     __tablename__ = "tbl_permiso"
 
-    id_permiso     = Column(Integer, primary_key=True, autoincrement=True)
-    nombre_permiso = Column(String(100), nullable=False, unique=True)
-    descripcion    = Column(String(200), nullable=True)
-    modulo         = Column(String(80), nullable=True)
+    id_permiso: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nombre_permiso: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    descripcion: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    modulo: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
 
     # Relaciones
-    roles = relationship("RolPermiso", back_populates="permiso")
+    roles: Mapped[list["RolPermiso"]] = relationship("RolPermiso", back_populates="permiso")
 
     def __repr__(self) -> str:
         return f"<Permiso '{self.nombre_permiso}'>"
@@ -60,17 +61,17 @@ class RolPermiso(Base):
     """
     __tablename__ = "tbl_rol_permiso"
 
-    id_rol_permiso = Column(Integer, primary_key=True, autoincrement=True)
-    id_rol         = Column(Integer, ForeignKey("tbl_rol.id_rol", ondelete="CASCADE"), nullable=False)
-    id_permiso     = Column(Integer, ForeignKey("tbl_permiso.id_permiso", ondelete="CASCADE"), nullable=False)
+    id_rol_permiso: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id_rol: Mapped[int] = mapped_column(Integer, ForeignKey("tbl_rol.id_rol", ondelete="CASCADE"), nullable=False)
+    id_permiso: Mapped[int] = mapped_column(Integer, ForeignKey("tbl_permiso.id_permiso", ondelete="CASCADE"), nullable=False)
 
     __table_args__ = (
         UniqueConstraint("id_rol", "id_permiso", name="uq_rol_permiso"),
     )
 
     # Relaciones
-    rol     = relationship("Rol", back_populates="permisos")
-    permiso = relationship("Permiso", back_populates="roles")
+    rol: Mapped["Rol"] = relationship("Rol", back_populates="permisos")
+    permiso: Mapped["Permiso"] = relationship("Permiso", back_populates="roles")
 
 
 class Usuario(Base):
@@ -81,26 +82,34 @@ class Usuario(Base):
     """
     __tablename__ = "tbl_usuario"
 
-    id_usuario     = Column(Integer, primary_key=True, autoincrement=True)
-    nombre         = Column(String(100), nullable=False)
-    apellido       = Column(String(100), nullable=False)
-    correo         = Column(String(150), nullable=False, unique=True)
-    contrasena     = Column(String(255), nullable=False, comment="Hash bcrypt — nunca texto plano")
-    telefono       = Column(String(20), nullable=True)
-    fecha_registro = Column(DateTime, nullable=False, default=datetime.utcnow)
-    estado_cuenta  = Column(
+    id_usuario: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nombre: Mapped[str] = mapped_column(String(100), nullable=False)
+    apellido: Mapped[str] = mapped_column(String(100), nullable=False)
+    correo: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
+    contrasena: Mapped[str] = mapped_column(String(255), nullable=False, comment="Hash bcrypt — nunca texto plano")
+    telefono: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    fecha_registro: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    estado_cuenta: Mapped[str] = mapped_column(
         Enum("activo", "inactivo", "suspendido"),
         nullable=False,
         default="activo"
     )
-    intentos_fallidos = Column(Integer, nullable=False, default=0,
+    intentos_fallidos: Mapped[int] = mapped_column(Integer, nullable=False, default=0,
                                comment="Contador de intentos de login fallidos")
-    ultimo_acceso  = Column(DateTime, nullable=True,
+    ultimo_acceso: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True,
                             comment="Fecha del último login exitoso")
-    id_rol         = Column(Integer, ForeignKey("tbl_rol.id_rol"), nullable=False)
+    id_rol: Mapped[int] = mapped_column(Integer, ForeignKey("tbl_rol.id_rol"), nullable=False)
+
+    # OAuth Google
+    google_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True,
+                           comment="ID único de Google para usuarios OAuth")
+    provider: Mapped[str] = mapped_column(String(20), nullable=False, default="local",
+                        comment="Proveedor de autenticación: local, google")
+    avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True,
+                             comment="URL del avatar del usuario (Google profile picture)")
 
     # Relaciones
-    rol = relationship("Rol", back_populates="usuarios")
+    rol: Mapped["Rol"] = relationship("Rol", back_populates="usuarios")
 
     @property
     def nombre_completo(self) -> str:

@@ -25,11 +25,12 @@ import json
 import logging
 import os
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from fastapi import HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy import text
+from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -345,7 +346,7 @@ class ReportesService:
         hace_7dias = ahora - timedelta(days=7)
         hoy_inicio = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        def _count(sql: str, params: dict = None) -> int:
+        def _count(sql: str, params: Optional[Dict[str, Any]] = None) -> int:
             try:
                 r = self.db.execute(text(sql), params or {}).fetchone()
                 return int(r[0]) if r and r[0] else 0
@@ -413,7 +414,7 @@ class ReportesService:
         }
         return metodos[tipo_reporte](fecha_inicio, fecha_fin)
 
-    def _q(self, sql: str, params: dict = None) -> List[Any]:
+    def _q(self, sql: str, params: Optional[Dict[str, Any]] = None) -> Sequence[Row[Any]]:
         """Ejecuta SQL y retorna lista de Row. Silencia errores de tabla inexistente."""
         try:
             return self.db.execute(text(sql), params or {}).fetchall()

@@ -9,6 +9,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './components/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import GoogleCallback from './pages/GoogleCallback';
 import Cultivos from './pages/Cultivos';
 import Monitoreo from './pages/Monitoreo';
 import InteligenciaArtificial from './pages/InteligenciaArtificial';
@@ -72,6 +74,10 @@ function AppRoutes() {
       <Route path="/login" element={
         estaAutenticado ? <Navigate to={getDashboardPath()} replace /> : <Login />
       } />
+      <Route path="/register" element={
+        estaAutenticado ? <Navigate to={getDashboardPath()} replace /> : <Register />
+      } />
+      <Route path="/auth/google/callback" element={<GoogleCallback />} />
 
       <Route path="/dashboard"    element={<RutaProtegida><Cultivos /></RutaProtegida>} />
       <Route path="/cultivos"     element={<RutaProtegida><Cultivos /></RutaProtegida>} />

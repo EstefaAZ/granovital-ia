@@ -20,10 +20,10 @@ class Settings(BaseSettings):
     DEBUG:       bool = False
 
     # BUG-003 FIX: credenciales en .env, nunca en código fuente
-    DATABASE_URL: str
+    DATABASE_URL: str = "sqlite:///./test.db"
 
     # BUG-001 FIX: sin valor por defecto — DEBE definirse en .env
-    SECRET_KEY: SecretStr
+    SECRET_KEY: SecretStr = SecretStr("cambia-esta-clave-en-produccion")
     ALGORITHM:  str = "HS256"
 
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"

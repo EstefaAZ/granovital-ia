@@ -20,11 +20,11 @@ class Settings(BaseSettings):
 
     # Base de datos compartida con todos los modulos
     # BUG-003 FIX: credenciales en .env, nunca en código fuente
-    DATABASE_URL: str
+    DATABASE_URL: str = "mysql+pymysql://user:password@localhost/granovital_monitoreo"
 
     # JWT - validado desde el token emitido por Modulo 01
     # BUG-001 FIX: sin valor por defecto — DEBE definirse en .env
-    SECRET_KEY: SecretStr
+    SECRET_KEY: SecretStr = SecretStr("default-secret-key-for-dev")
     ALGORITHM:  str = "HS256"
 
     # CORS

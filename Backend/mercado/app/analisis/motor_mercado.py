@@ -71,7 +71,7 @@ def calcular_estadisticas_precios(
 
 def calcular_variacion_porcentual(
     precio_actual:  float,
-    precio_anterior: float,
+    precio_anterior: Optional[float],
 ) -> Optional[float]:
     """
     Calcula la variación porcentual entre dos precios.
@@ -106,7 +106,7 @@ def clasificar_tendencia(
     variacion_pct: Optional[float],
     rango:         float,
     promedio:      float,
-    umbral_pct:    float = None,
+    umbral_pct:    Optional[float] = None,
 ) -> str:
     """
     Clasifica la tendencia del precio.
@@ -133,7 +133,7 @@ def generar_alerta_precio(
     variacion_pct:  Optional[float],
     precio_actual:  float,
     tendencia:      str,
-    umbral_pct:     float = None,
+    umbral_pct:     Optional[float] = None,
 ) -> Tuple[bool, Optional[str]]:
     """
     Genera alerta cuando la variación supera el umbral configurado.

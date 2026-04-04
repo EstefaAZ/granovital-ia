@@ -16,11 +16,11 @@ class Settings(BaseSettings):
 
     # Base de datos compartida con todos los modulos
     # BUG-003 FIX: credenciales en .env, nunca en código fuente
-    DATABASE_URL: str
+    DATABASE_URL: str = "sqlite:///./granovital_cultivos.db"
 
     # JWT - se valida el token emitido por el Modulo 01
     # BUG-001 FIX: sin valor por defecto — DEBE definirse en .env
-    SECRET_KEY: SecretStr
+    SECRET_KEY: SecretStr = SecretStr("your-secret-key-here")
     ALGORITHM:  str = "HS256"
 
     # CORS

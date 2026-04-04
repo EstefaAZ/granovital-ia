@@ -25,10 +25,12 @@
 
 import hashlib
 from datetime import datetime, timezone
+from typing import Optional
 from sqlalchemy import (
     Column, DateTime, Enum, Float, ForeignKey,
     Integer, Numeric, String, Text, Boolean,
 )
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
@@ -64,96 +66,97 @@ class TrazabilidadLote(Base):
     """
     __tablename__ = "tbl_trazabilidad_lote"
 
-    id_lote              = Column(Integer, primary_key=True, autoincrement=True)
-    codigo_lote          = Column(
+    id_lote: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    codigo_lote: Mapped[str] = mapped_column(
         String(40), nullable=False, unique=True,
         comment="Codigo unico legible, ej: GV-2025-0042",
     )
 
     # --- Datos de origen ---
-    variedad_cafe        = Column(
+    variedad_cafe: Mapped[str] = mapped_column(
         Enum("castillo", "colombia", "caturra", "cenicafe_1", "otro"),
         nullable=False,
     )
-    fecha_cosecha        = Column(DateTime, nullable=False)
-    metodo_cosecha       = Column(
+    fecha_cosecha: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    metodo_cosecha: Mapped[str] = mapped_column(
         Enum("manual_selectiva", "manual_global", "mecanica"),
         nullable=False,
         default="manual_selectiva",
     )
-    kg_cereza_cosechados = Column(
+    kg_cereza_cosechados: Mapped[float] = mapped_column(
         Numeric(10, 2), nullable=False,
         comment="Kilogramos de cafe cereza cosechados",
     )
 
     # --- Proceso ---
-    metodo_beneficio     = Column(
+    metodo_beneficio: Mapped[Optional[str]] = mapped_column(
         Enum("lavado", "natural", "honey", "anaerobic"),
         nullable=True,
         comment="Metodo de beneficio post-cosecha",
     )
-    fecha_inicio_secado  = Column(DateTime, nullable=True)
-    fecha_fin_secado     = Column(DateTime, nullable=True)
-    kg_pergamino_seco    = Column(
+    fecha_inicio_secado: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    fecha_fin_secado: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    kg_pergamino_seco: Mapped[Optional[float]] = mapped_column(
         Numeric(10, 2), nullable=True,
         comment="Kg de cafe pergamino seco obtenidos",
     )
 
     # --- Calidad ---
-    humedad_final_pct    = Column(
+    humedad_final_pct: Mapped[Optional[float]] = mapped_column(
         Float, nullable=True,
         comment="% de humedad del grano al finalizar secado",
     )
-    clasificacion_calidad = Column(
+    clasificacion_calidad: Mapped[str] = mapped_column(
         Enum("supremo", "excelso_extra", "excelso", "corriente", "pasilla", "sin_clasificar"),
         nullable=False,
         default="sin_clasificar",
     )
-    puntaje_taza         = Column(
+    puntaje_taza: Mapped[Optional[float]] = mapped_column(
         Float, nullable=True,
         comment="Puntaje de catacion en escala SCA (0-100)",
     )
-    numero_defectos      = Column(
+    numero_defectos: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True,
         comment="Numero de granos defectuosos por muestra de 300g (norma FNC)",
     )
 
     # --- Comercializacion ---
-    precio_venta_kg      = Column(Numeric(10, 2), nullable=True)
-    comprador            = Column(String(120), nullable=True)
-    fecha_venta          = Column(DateTime, nullable=True)
-    destino_exportacion  = Column(String(80), nullable=True)
+    precio_venta_kg: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+    comprador: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    fecha_venta: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    destino_exportacion: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
 
     # --- Trazabilidad digital ---
-    estado               = Column(
+    estado: Mapped[str] = mapped_column(
         Enum(*ESTADOS_LOTE),
         nullable=False,
         default="registrado",
         comment="Estado segun Diagrama de Estados del LOTE",
     )
-    hash_integridad      = Column(
+    hash_integridad: Mapped[Optional[str]] = mapped_column(
         String(64), nullable=True,
         comment="SHA-256 calculado al validar. RN-04: detecta alteraciones.",
     )
-    codigo_qr            = Column(
+    codigo_qr: Mapped[Optional[str]] = mapped_column(
         String(300), nullable=True,
         comment="URL publica para escaneo del consumidor (RN-05)",
     )
-    validado             = Column(
+    validado: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False,
         comment="True cuando el lote pasa a estado 'aprobado'",
     )
-    observaciones        = Column(Text, nullable=True)
+    observaciones: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # --- Relaciones ---
-    id_cultivo = Column(
-    Integer,
-    nullable=False,
-    comment="FK a tbl_cultivo - integridad gestionada por MySQL",
+    id_cultivo: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("tbl_cultivo.id_cultivo", ondelete="RESTRICT"),
+        nullable=False,
+        comment="FK a tbl_cultivo - integridad gestionada por MySQL",
     )
-    id_usuario_creador   = Column(Integer, nullable=False)
-    fecha_creacion       = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    fecha_actualizacion  = Column(DateTime, nullable=True, onupdate=lambda: datetime.now(timezone.utc))
+    id_usuario_creador: Mapped[int] = mapped_column(Integer, nullable=False)
+    fecha_creacion: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    fecha_actualizacion: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, onupdate=lambda: datetime.now(timezone.utc))
 
     def calcular_hash(self, sal: str = "") -> str:
         """
@@ -186,8 +189,8 @@ class EventoTrazabilidad(Base):
     """
     __tablename__ = "tbl_evento_trazabilidad"
 
-    id_evento        = Column(Integer, primary_key=True, autoincrement=True)
-    tipo_evento      = Column(
+    id_evento: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tipo_evento: Mapped[str] = mapped_column(
         Enum(
             "registro_lote",
             "confirmacion",
@@ -203,21 +206,21 @@ class EventoTrazabilidad(Base):
         ),
         nullable=False,
     )
-    estado_anterior  = Column(String(30), nullable=True)
-    estado_nuevo     = Column(String(30), nullable=True)
-    descripcion      = Column(Text, nullable=False)
-    datos_adicionales = Column(
+    estado_anterior: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    estado_nuevo: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    descripcion: Mapped[str] = mapped_column(Text, nullable=False)
+    datos_adicionales: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True,
         comment="JSON con datos especificos del evento",
     )
-    id_lote          = Column(
+    id_lote: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("tbl_trazabilidad_lote.id_lote", ondelete="RESTRICT"),
         nullable=False,
     )
-    id_usuario       = Column(Integer, nullable=False)
-    fecha_evento     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    ip_origen        = Column(String(45), nullable=True)
+    id_usuario: Mapped[int] = mapped_column(Integer, nullable=False)
+    fecha_evento: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    ip_origen: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
 
     def __repr__(self):
         return (
@@ -244,40 +247,40 @@ class ControlSecado(Base):
     """
     __tablename__ = "tbl_control_secado"
 
-    id_secado           = Column(Integer, primary_key=True, autoincrement=True)
-    temperatura_c       = Column(
+    id_secado: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    temperatura_c: Mapped[float] = mapped_column(
         Float, nullable=False,
         comment="Temperatura del aire de secado en grados Celsius",
     )
-    humedad_grano_pct   = Column(
+    humedad_grano_pct: Mapped[Optional[float]] = mapped_column(
         Float, nullable=True,
         comment="Porcentaje de humedad del grano medido en la lectura",
     )
-    humedad_ambiente_pct = Column(Float, nullable=True)
-    horas_transcurridas = Column(
+    humedad_ambiente_pct: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    horas_transcurridas: Mapped[int] = mapped_column(
         Integer, nullable=False,
         comment="Horas totales desde el inicio del secado",
     )
-    metodo_secado       = Column(
+    metodo_secado: Mapped[str] = mapped_column(
         Enum("solar", "mecanico", "mixto"),
         nullable=False,
         default="solar",
     )
     # Alertas calculadas por el servicio
-    alerta_temperatura  = Column(String(200), nullable=True)
-    alerta_humedad      = Column(String(200), nullable=True)
-    proceso_completo    = Column(
+    alerta_temperatura: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    alerta_humedad: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    proceso_completo: Mapped[bool] = mapped_column(
         Boolean, default=False,
         comment="True si la humedad objetivo se ha alcanzado",
     )
-    observaciones       = Column(Text, nullable=True)
-    id_lote             = Column(
+    observaciones: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    id_lote: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("tbl_trazabilidad_lote.id_lote", ondelete="CASCADE"),
         nullable=False,
     )
-    id_usuario          = Column(Integer, nullable=False)
-    fecha_lectura       = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    id_usuario: Mapped[int] = mapped_column(Integer, nullable=False)
+    fecha_lectura: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (
@@ -306,45 +309,45 @@ class ClasificacionGrano(Base):
     """
     __tablename__ = "tbl_clasificacion_grano"
 
-    id_clasificacion    = Column(Integer, primary_key=True, autoincrement=True)
-    categoria           = Column(
+    id_clasificacion: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    categoria: Mapped[str] = mapped_column(
         Enum("supremo", "excelso_extra", "excelso", "corriente", "pasilla"),
         nullable=False,
     )
-    numero_defectos     = Column(Integer, nullable=False)
-    humedad_pct         = Column(Float, nullable=False)
-    puntaje_taza        = Column(
+    numero_defectos: Mapped[int] = mapped_column(Integer, nullable=False)
+    humedad_pct: Mapped[float] = mapped_column(Float, nullable=False)
+    puntaje_taza: Mapped[Optional[float]] = mapped_column(
         Float, nullable=True,
         comment="Puntaje SCA: >= 80 = specialty coffee",
     )
-    factores_calidad    = Column(
+    factores_calidad: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True,
         comment='JSON: ["fragancia_9.0","acidez_8.5","cuerpo_8.0"]',
     )
-    observaciones_calidad = Column(Text, nullable=True)
-    precio_sugerido_kg  = Column(
+    observaciones_calidad: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    precio_sugerido_kg: Mapped[Optional[float]] = mapped_column(
         Numeric(10, 2), nullable=True,
         comment="Precio sugerido en COP por kg segun categoria",
     )
-    aprobado_exportacion = Column(
+    aprobado_exportacion: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False,
         comment="True si cumple estandares FNC para exportacion",
     )
     # Metodo de clasificacion usado
-    metodo             = Column(
+    metodo: Mapped[str] = mapped_column(
         Enum("ia_automatica", "manual", "laboratorio"),
         nullable=False,
         default="ia_automatica",
     )
-    confianza_ia       = Column(Float, nullable=True)
-    version_modelo_ia  = Column(String(30), nullable=True)
-    id_lote            = Column(
+    confianza_ia: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    version_modelo_ia: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    id_lote: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("tbl_trazabilidad_lote.id_lote", ondelete="CASCADE"),
         nullable=False,
     )
-    id_usuario         = Column(Integer, nullable=False)
-    fecha_clasificacion = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    id_usuario: Mapped[int] = mapped_column(Integer, nullable=False)
+    fecha_clasificacion: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (

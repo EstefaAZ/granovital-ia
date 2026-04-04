@@ -205,7 +205,13 @@ def listar_lotes(
     _rol: str           = Depends(require_roles(*ROLES_PRODUCTOR)),
     db:   Session       = Depends(get_db),
 ) -> List[LoteResponse]:
-    return CultivoService(db).listar_lotes(cultivo_id, usuario_id)
+    lotes = CultivoService(db).listar_lotes(cultivo_id, usuario_id)
+    return [
+        LoteResponse(
+            **{c.name: getattr(lote, c.name) for c in lote.__table__.columns}
+        )
+        for lote in lotes
+    ]
 
 
 @router.get(
@@ -295,4 +301,10 @@ def listar_sensores(
     _rol: str           = Depends(require_roles(*ROLES_CAFICULTOR)),
     db:   Session       = Depends(get_db),
 ) -> List[SensorResponse]:
-    return CultivoService(db).listar_sensores(cultivo_id, usuario_id)
+    sensores = CultivoService(db).listar_sensores(cultivo_id, usuario_id)
+    return [
+        SensorResponse(
+            **{c.name: getattr(sensor, c.name) for c in sensor.__table__.columns}
+        )
+        for sensor in sensores
+    ]

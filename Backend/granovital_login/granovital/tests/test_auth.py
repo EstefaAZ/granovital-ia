@@ -300,3 +300,21 @@ class TestLoginEndpoint:
         """Acceder a /me sin token debe retornar error de autenticación."""
         response = client.get("/api/v1/auth/me")
         assert response.status_code in [401, 403]
+
+    def test_endpoint_me_token_invalido_retorna_401(self):
+        """Un token inválido debe retornar HTTP 401 y mensaje claro."""
+        response = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": "Bearer token.invalido.ejemplo"},
+        )
+        assert response.status_code == 401
+        assert "Token de autenticación inválido" in response.json().get("detail", "")
+
+    def test_endpoint_me_token_malformado_retorna_401(self):
+        """Un header Authorization malformado debe retornar HTTP 401/403."""
+        response = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": "Bearer"},
+        )
+        assert response.status_code in [401, 403]
+

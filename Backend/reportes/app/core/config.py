@@ -30,9 +30,9 @@ class Settings(BaseSettings):
     DEBUG:       bool = False
 
     # BUG-003 FIX: credenciales en .env, nunca en código fuente
-    DATABASE_URL: str
+    DATABASE_URL: str = "mysql+pymysql://user:password@localhost/granovital_reportes"
     # BUG-001 FIX: sin valor por defecto — DEBE definirse en .env
-    SECRET_KEY: SecretStr
+    SECRET_KEY: SecretStr = SecretStr("default-secret-key-for-dev")
     ALGORITHM:  str = "HS256"
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 

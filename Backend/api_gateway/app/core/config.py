@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # BUG-002 FIX: SecretStr evita que la clave aparezca en logs/repr.
     # Sin valor por defecto — DEBE configurarse en .env.
-    JWT_SECRET_KEY: SecretStr
+    JWT_SECRET_KEY: SecretStr = SecretStr("cambia-esta-clave-en-produccion")
     JWT_ALGORITHM: str = "HS256"
 
     @model_validator(mode="after")

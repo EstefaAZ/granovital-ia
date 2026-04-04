@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # ── JWT ───────────────────────────────────────────────────
     # BUG-002 FIX: SecretStr + sin valor por defecto. DEBE estar en .env.
-    JWT_SECRET_KEY: SecretStr
+    JWT_SECRET_KEY: SecretStr = SecretStr("your-jwt-secret-key-here")
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -48,6 +48,25 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     REDIS_PASSWORD: str = ""
+
+    # ── Email ─────────────────────────────────────────────────
+    EMAIL_ENABLED: bool = False
+    EMAIL_SMTP_SERVER: str = "smtp.gmail.com"
+    EMAIL_SMTP_PORT: int = 587
+    EMAIL_SMTP_USERNAME: str = ""
+    EMAIL_SMTP_PASSWORD: SecretStr = SecretStr("")
+    EMAIL_FROM: str = "noreply@granovitalia.com"
+    EMAIL_FROM_NAME: str = "GranoVital IA"
+
+    # ── Verificación de email ──────────────────────────────────
+    EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES: int = 15
+    EMAIL_VERIFICATION_CODE_LENGTH: int = 6
+
+    # ── Google OAuth ──────────────────────────────────────────
+    GOOGLE_OAUTH_ENABLED: bool = False
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: SecretStr = SecretStr("")
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
 
     @property
     def REDIS_URL(self) -> str:

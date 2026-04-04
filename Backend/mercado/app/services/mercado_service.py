@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.analisis.motor_mercado import (
@@ -151,7 +151,7 @@ class MercadoService:
     def analizar_precios(
         self,
         usuario_id:    int,
-        meses:         int = None,
+        meses:         Optional[int] = None,
         tipo_cafe:     str = "pergamino_seco",
         fuente_filtro: str = "todas",
     ) -> AnalisisPrecioResponse:
@@ -333,7 +333,7 @@ class MercadoService:
     def analizar_demanda(
         self,
         usuario_id:     int,
-        meses:          int = None,
+        meses:          Optional[int] = None,
         observaciones:  Optional[DemandaObservacionCreate] = None,
     ) -> AnalisisDemandaResponse:
         """
@@ -634,6 +634,8 @@ class MercadoService:
                     WHERE  estado = 'aprobado'
                 """)
             ).fetchone()
+            if not r:
+                return 0, 0.0
             return int(r.lotes), float(r.kg)
         except Exception:
             return 0, 0.0

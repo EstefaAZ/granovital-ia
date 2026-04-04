@@ -32,9 +32,10 @@
 
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, DateTime, Enum, Float, ForeignKey,
+    DateTime, Enum, Float, ForeignKey,
     Integer, Numeric, String, Text, Boolean,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
 
@@ -61,40 +62,40 @@ class PrecioMercado(Base):
     """
     __tablename__ = "tbl_precio_mercado"
 
-    id_precio          = Column(Integer, primary_key=True, autoincrement=True)
-    fuente             = Column(Enum(*FUENTES_PRECIO), nullable=False)
-    tipo_cafe          = Column(
+    id_precio: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fuente: Mapped[str] = mapped_column(Enum(*FUENTES_PRECIO), nullable=False)
+    tipo_cafe: Mapped[str] = mapped_column(
         Enum(*TIPOS_CAFE),
         nullable=False,
         default="pergamino_seco",
     )
-    precio_cop_kg      = Column(
+    precio_cop_kg: Mapped[float] = mapped_column(
         Numeric(12, 2), nullable=False,
         comment="Precio en COP por kilogramo",
     )
-    precio_usd_lb      = Column(
+    precio_usd_lb: Mapped[float] = mapped_column(
         Numeric(8, 4), nullable=True,
         comment="Precio en USD por libra (opcional, para referencia bolsa NY)",
     )
-    variedad           = Column(
+    variedad: Mapped[str] = mapped_column(
         Enum("castillo", "colombia", "caturra", "cenicafe_1", "mezcla", "otro"),
         nullable=True,
     )
-    categoria_calidad  = Column(
+    categoria_calidad: Mapped[str] = mapped_column(
         Enum("supremo", "excelso_extra", "excelso", "corriente", "pasilla", "todas"),
         nullable=False,
         default="todas",
     )
-    region             = Column(String(80), nullable=True)
-    notas              = Column(Text, nullable=True)
+    region: Mapped[str] = mapped_column(String(80), nullable=True)
+    notas: Mapped[str] = mapped_column(Text, nullable=True)
     # Si el precio viene de una venta propia del M05
-    id_lote_origen     = Column(Integer, nullable=True)
-    id_usuario         = Column(Integer, nullable=False)
-    fecha_precio       = Column(
+    id_lote_origen: Mapped[int] = mapped_column(Integer, nullable=True)
+    id_usuario: Mapped[int] = mapped_column(Integer, nullable=False)
+    fecha_precio: Mapped[datetime] = mapped_column(
         DateTime, nullable=False,
         comment="Fecha a la que corresponde el precio (no la fecha de ingreso)",
     )
-    fecha_registro     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    fecha_registro: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (
@@ -122,33 +123,33 @@ class AnalisisPrecio(Base):
     """
     __tablename__ = "tbl_analisis_precio"
 
-    id_analisis        = Column(Integer, primary_key=True, autoincrement=True)
-    periodo_inicio     = Column(DateTime, nullable=False)
-    periodo_fin        = Column(DateTime, nullable=False)
-    tipo_cafe          = Column(Enum(*TIPOS_CAFE), nullable=False, default="pergamino_seco")
-    fuente_analizada   = Column(String(60), nullable=False, default="todas")
-    precio_promedio    = Column(Numeric(12, 2), nullable=False)
-    precio_minimo      = Column(Numeric(12, 2), nullable=False)
-    precio_maximo      = Column(Numeric(12, 2), nullable=False)
-    variacion_pct      = Column(
+    id_analisis: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    periodo_inicio: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    periodo_fin: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    tipo_cafe: Mapped[str] = mapped_column(Enum(*TIPOS_CAFE), nullable=False, default="pergamino_seco")
+    fuente_analizada: Mapped[str] = mapped_column(String(60), nullable=False, default="todas")
+    precio_promedio: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    precio_minimo: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    precio_maximo: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    variacion_pct: Mapped[float] = mapped_column(
         Float, nullable=True,
         comment="% de variacion respecto al periodo anterior equivalente",
     )
-    tendencia          = Column(Enum(*TENDENCIAS), nullable=False, default="estable")
-    precio_proyectado  = Column(
+    tendencia: Mapped[str] = mapped_column(Enum(*TENDENCIAS), nullable=False, default="estable")
+    precio_proyectado: Mapped[float] = mapped_column(
         Numeric(12, 2), nullable=True,
         comment="Proyeccion WMA-3 para el siguiente mes",
     )
-    alerta_activa      = Column(Boolean, default=False)
-    mensaje_alerta     = Column(String(300), nullable=True)
-    recomendacion      = Column(Text, nullable=False)
-    num_registros_base = Column(
+    alerta_activa: Mapped[bool] = mapped_column(Boolean, default=False)
+    mensaje_alerta: Mapped[str] = mapped_column(String(300), nullable=True)
+    recomendacion: Mapped[str] = mapped_column(Text, nullable=False)
+    num_registros_base: Mapped[int] = mapped_column(
         Integer, nullable=False,
         comment="Cantidad de precios usados para calcular el analisis",
     )
-    version_metodologia = Column(String(30), default="wma-3-periodos-1.0")
-    id_usuario         = Column(Integer, nullable=False)
-    fecha_analisis     = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    version_metodologia: Mapped[str] = mapped_column(String(30), default="wma-3-periodos-1.0")
+    id_usuario: Mapped[int] = mapped_column(Integer, nullable=False)
+    fecha_analisis: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (
@@ -174,46 +175,46 @@ class AnalisisDemanda(Base):
     """
     __tablename__ = "tbl_analisis_demanda"
 
-    id_demanda             = Column(Integer, primary_key=True, autoincrement=True)
-    periodo_inicio         = Column(DateTime, nullable=False)
-    periodo_fin            = Column(DateTime, nullable=False)
+    id_demanda: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    periodo_inicio: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    periodo_fin: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     # Métricas calculadas del M05
-    total_lotes_vendidos   = Column(Integer, nullable=False, default=0)
-    kg_totales_vendidos    = Column(
+    total_lotes_vendidos: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    kg_totales_vendidos: Mapped[float] = mapped_column(
         Numeric(14, 2), nullable=False, default=0,
         comment="Kilogramos de pergamino seco vendidos en el periodo",
     )
-    kg_promedio_por_lote   = Column(Numeric(10, 2), nullable=True)
-    dias_promedio_venta    = Column(
+    kg_promedio_por_lote: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
+    dias_promedio_venta: Mapped[float] = mapped_column(
         Float, nullable=True,
         comment="Dias promedio entre aprobacion del lote y registro de venta",
     )
-    categoria_mas_demandada = Column(String(40), nullable=True)
-    comprador_frecuente    = Column(String(120), nullable=True)
-    destino_principal      = Column(String(80), nullable=True)
+    categoria_mas_demandada: Mapped[str] = mapped_column(String(40), nullable=True)
+    comprador_frecuente: Mapped[str] = mapped_column(String(120), nullable=True)
+    destino_principal: Mapped[str] = mapped_column(String(80), nullable=True)
     # Clasificación de la demanda
-    nivel_demanda          = Column(
+    nivel_demanda: Mapped[str] = mapped_column(
         Enum("baja", "media", "alta", "muy_alta"),
         nullable=False,
         default="media",
     )
-    variacion_demanda_pct  = Column(
+    variacion_demanda_pct: Mapped[float] = mapped_column(
         Float, nullable=True,
         comment="% de variacion vs periodo anterior",
     )
     # Observaciones del Comercializador (contexto externo)
-    observaciones_mercado  = Column(Text, nullable=True)
-    oportunidades          = Column(
+    observaciones_mercado: Mapped[str] = mapped_column(Text, nullable=True)
+    oportunidades: Mapped[str] = mapped_column(
         Text, nullable=True,
         comment="Oportunidades comerciales identificadas en el periodo",
     )
-    riesgos                = Column(
+    riesgos: Mapped[str] = mapped_column(
         Text, nullable=True,
         comment="Riesgos de demanda identificados",
     )
-    recomendacion          = Column(Text, nullable=False)
-    id_usuario             = Column(Integer, nullable=False)
-    fecha_analisis         = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    recomendacion: Mapped[str] = mapped_column(Text, nullable=False)
+    id_usuario: Mapped[int] = mapped_column(Integer, nullable=False)
+    fecha_analisis: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (

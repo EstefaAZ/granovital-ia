@@ -21,9 +21,10 @@
 
 from datetime import datetime, timezone  # C-02 FIX
 from sqlalchemy import (
-    Column, DateTime, Enum, Integer,
+    DateTime, Enum, Integer,
     String, Text,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
 
@@ -63,37 +64,37 @@ class Reporte(Base):
     """
     __tablename__ = "tbl_reporte"
 
-    id_reporte      = Column(Integer, primary_key=True, autoincrement=True)
-    tipo_reporte    = Column(Enum(*TIPOS_REPORTE), nullable=False)
-    nombre          = Column(
+    id_reporte: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tipo_reporte: Mapped[str] = mapped_column(Enum(*TIPOS_REPORTE), nullable=False)
+    nombre: Mapped[str] = mapped_column(
         String(200), nullable=False,
         comment="Nombre descriptivo legible para el Administrador",
     )
-    parametros      = Column(
+    parametros: Mapped[str] = mapped_column(
         Text, nullable=True,
         comment="JSON con los parámetros usados para generar el reporte",
     )
     # Diagrama de estados del documento oficial
-    estado          = Column(
+    estado: Mapped[str] = mapped_column(
         Enum(*ESTADOS_REPORTE), nullable=False, default="solicitado"
     )
-    ruta_archivo    = Column(String(500), nullable=True)
-    nombre_archivo  = Column(String(200), nullable=True)
-    tamano_bytes    = Column(Integer, nullable=True)
-    num_registros   = Column(
+    ruta_archivo: Mapped[str] = mapped_column(String(500), nullable=True)
+    nombre_archivo: Mapped[str] = mapped_column(String(200), nullable=True)
+    tamano_bytes: Mapped[int] = mapped_column(Integer, nullable=True)
+    num_registros: Mapped[int] = mapped_column(
         Integer, nullable=True,
         comment="Cantidad de registros incluidos en el reporte",
     )
-    mensaje_error   = Column(String(500), nullable=True)
+    mensaje_error: Mapped[str] = mapped_column(String(500), nullable=True)
     # Trazabilidad del reporte mismo
-    id_usuario      = Column(Integer, nullable=False)
-    nombre_usuario  = Column(
+    id_usuario: Mapped[int] = mapped_column(Integer, nullable=False)
+    nombre_usuario: Mapped[str] = mapped_column(
         String(150), nullable=True,
         comment="Desnormalizado para que el log sea autocontenido",
     )
-    fecha_solicitud = Column(DateTime, nullable=False, default=datetime.utcnow)
-    fecha_generado  = Column(DateTime, nullable=True)
-    fecha_descarga  = Column(DateTime, nullable=True)
+    fecha_solicitud: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    fecha_generado: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    fecha_descarga: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self):
         return (
@@ -117,38 +118,38 @@ class RegistroAuditoria(Base):
     """
     __tablename__ = "tbl_auditoria"
 
-    id_auditoria   = Column(Integer, primary_key=True, autoincrement=True)
-    modulo         = Column(Enum(*MODULOS_SISTEMA), nullable=False)
-    accion         = Column(Enum(*ACCIONES_AUDITORIA), nullable=False)
-    tipo_entidad   = Column(
+    id_auditoria: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    modulo: Mapped[str] = mapped_column(Enum(*MODULOS_SISTEMA), nullable=False)
+    accion: Mapped[str] = mapped_column(Enum(*ACCIONES_AUDITORIA), nullable=False)
+    tipo_entidad: Mapped[str] = mapped_column(
         String(80), nullable=True,
         comment="Nombre de la entidad afectada: lote, cultivo, usuario...",
     )
-    id_entidad     = Column(
+    id_entidad: Mapped[int] = mapped_column(
         Integer, nullable=True,
         comment="ID del registro afectado en su tabla de origen",
     )
-    descripcion    = Column(
+    descripcion: Mapped[str] = mapped_column(
         Text, nullable=False,
         comment="Descripción humana de lo que ocurrió",
     )
-    resultado      = Column(
+    resultado: Mapped[str] = mapped_column(
         Enum("exitoso", "fallido", "parcial"), nullable=False, default="exitoso"
     )
-    id_usuario     = Column(Integer, nullable=True)
-    nombre_usuario = Column(String(150), nullable=True)
-    rol_usuario    = Column(String(60), nullable=True)
-    ip_origen      = Column(String(50), nullable=True)
-    user_agent     = Column(String(300), nullable=True)
-    dato_anterior  = Column(
+    id_usuario: Mapped[int] = mapped_column(Integer, nullable=True)
+    nombre_usuario: Mapped[str] = mapped_column(String(150), nullable=True)
+    rol_usuario: Mapped[str] = mapped_column(String(60), nullable=True)
+    ip_origen: Mapped[str] = mapped_column(String(50), nullable=True)
+    user_agent: Mapped[str] = mapped_column(String(300), nullable=True)
+    dato_anterior: Mapped[str] = mapped_column(
         Text, nullable=True,
         comment="JSON del valor antes del cambio (para auditoría de modificaciones)",
     )
-    dato_nuevo     = Column(
+    dato_nuevo: Mapped[str] = mapped_column(
         Text, nullable=True,
         comment="JSON del valor después del cambio",
     )
-    fecha_evento   = Column(DateTime, nullable=False, default=datetime.utcnow)
+    fecha_evento: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return (

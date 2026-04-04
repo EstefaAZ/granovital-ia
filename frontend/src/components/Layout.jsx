@@ -4,7 +4,7 @@
 // RN-01: navegación filtrada por rol
 // =============================================================
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { getMenuPorRol } from "./menuConfig";
@@ -276,10 +276,31 @@ const styles = `
   .gv-navbar-spacer { flex: 1; }
 
   /* Avatar usuario */
+  .gv-user-dropdown {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    z-index: 1000;
+  }
+
   .gv-user-info {
     display: flex;
     align-items: center;
     gap: 10px;
+    border: 1px solid transparent;
+    background: rgba(255,255,255,0.75);
+    border-radius: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    min-width: 180px;
+    transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+  }
+
+  .gv-user-info:hover,
+  .gv-user-info.active {
+    background: rgba(255,255,255,0.95);
+    border-color: var(--cafe-claro);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
   }
 
   .gv-user-name {
@@ -308,6 +329,44 @@ const styles = `
     font-size: 14px;
     font-weight: 600;
     flex-shrink: 0;
+    user-select: none;
+  }
+
+  .gv-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    background: white;
+    border: 1px solid rgba(92,51,23,0.15);
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    min-width: 160px;
+    padding: 0.4rem 0;
+    overflow: hidden;
+    animation: dropdownFade 0.2s ease;
+  }
+
+  .gv-dropdown-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    background: transparent;
+    border: none;
+    color: var(--cafe-oscuro);
+    font-size: 0.9rem;
+    text-decoration: none;
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  .gv-dropdown-item:hover {
+    background: var(--crema);
+  }
+
+  @keyframes dropdownFade {
+    from { opacity: 0; transform: translateY(-5px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   /* ── CONTENIDO PRINCIPAL ── */
@@ -358,6 +417,8 @@ export default function Layout({ children, currentPath = "/" }) {
   const { usuario, logout, tieneRol, bienvenida } = useAuth();  // F-L08
   const navigate = useNavigate();
   const [sidebarAbierto, setSidebarAbierto] = useState(true);
+  const [perfilMenuVisible, setPerfilMenuVisible] = useState(false);
+  const perfilMenuRef = useRef(null);
 
   const rol = usuario?.rol?.nombre_rol || "";
   const menuItems = getMenuPorRol(rol);
@@ -374,6 +435,22 @@ export default function Layout({ children, currentPath = "/" }) {
   };
 
   const toggleSidebar = () => setSidebarAbierto((v) => !v);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (perfilMenuRef.current && !perfilMenuRef.current.contains(event.target)) {
+        setPerfilMenuVisible(false);
+      }
+    };
+
+    if (perfilMenuVisible) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [perfilMenuVisible]);
 
   return (
     <>
@@ -444,12 +521,40 @@ export default function Layout({ children, currentPath = "/" }) {
 
           <div className="gv-navbar-spacer" />
 
-          <div className="gv-user-info">
-            <div>
-              <div className="gv-user-name">{usuario?.nombre || "Usuario"}</div>
-              <div className="gv-user-rol">{rol}</div>
-            </div>
-            <div className="gv-avatar">{inicial}</div>
+          <div className="gv-user-dropdown" ref={perfilMenuRef}>
+            <button
+              className={`gv-user-info ${perfilMenuVisible ? "active" : ""}`}
+              onClick={() => setPerfilMenuVisible((open) => !open)}
+              aria-haspopup="true"
+              aria-expanded={perfilMenuVisible}
+            >
+              <div>
+                <div className="gv-user-name">{usuario?.nombre || "Usuario"}</div>
+                <div className="gv-user-rol">{rol}</div>
+              </div>
+              <div className="gv-avatar">{inicial}</div>
+            </button>
+
+            {perfilMenuVisible && (
+              <div className="gv-dropdown-menu">
+                <NavLink
+                  to="/perfil"
+                  className="gv-dropdown-item"
+                  onClick={() => setPerfilMenuVisible(false)}
+                >
+                  Perfil
+                </NavLink>
+                <button
+                  className="gv-dropdown-item"
+                  onClick={async () => {
+                    setPerfilMenuVisible(false);
+                    await handleLogout();
+                  }}
+                >
+                  Cerrar sesión
+                </button>
+              </div>
+            )}
           </div>
         </header>
 

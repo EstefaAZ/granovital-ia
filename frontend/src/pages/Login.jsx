@@ -35,6 +35,9 @@ export default function Login() {
   const [errores,     setErrores]     = useState({});
   const [errorApi,    setErrorApi]    = useState("");
 
+  // Google OAuth
+  const [googleCargando, setGoogleCargando] = useState(false);
+
   // SEC-004: estado de bloqueo por fuerza bruta
   const [bloqueado,       setBloqueado]       = useState(false);
   const [segsRestantes,   setSegsRestantes]   = useState(0);
@@ -50,11 +53,16 @@ export default function Login() {
 
   // SEC-004: sincronizar estado de bloqueo con authService al montar
   useEffect(() => {
-    const estado = authService.estasBloqueado();
-    if (estado.bloqueado) {
-      iniciarCuentaRegresiva(Math.ceil(estado.msRestantes / 1000));
+    if (typeof authService.estasBloqueado === "function") {
+      const estado = authService.estasBloqueado();
+      if (estado.bloqueado) {
+        iniciarCuentaRegresiva(Math.ceil(estado.msRestantes / 1000));
+      }
     }
-    setIntentosFallidos(authService.getIntentosFallidos());
+
+    if (typeof authService.getIntentosFallidos === "function") {
+      setIntentosFallidos(authService.getIntentosFallidos());
+    }
   }, []);
 
   // Limpieza del temporizador al desmontar
@@ -121,11 +129,17 @@ export default function Login() {
       navigate(ruta, { replace: true });
     } catch (err) {
       // SEC-004: actualizar contador de intentos desde authService
-      const nuevosIntentos = authService.getIntentosFallidos();
+      const nuevosIntentos =
+        typeof authService.getIntentosFallidos === "function"
+          ? authService.getIntentosFallidos()
+          : intentosFallidos + 1;
       setIntentosFallidos(nuevosIntentos);
 
       // Verificar si el bloqueo fue activado por este intento
-      const estadoBloqueo = authService.estasBloqueado();
+      const estadoBloqueo =
+        typeof authService.estasBloqueado === "function"
+          ? authService.estasBloqueado()
+          : { bloqueado: false, msRestantes: 0 };
       if (estadoBloqueo.bloqueado) {
         iniciarCuentaRegresiva(BLOQUEO_SEG);
         setErrorApi(
@@ -173,6 +187,33 @@ export default function Login() {
     setContrasena(e.target.value);
     if (errores.contrasena) setErrores((prev) => ({ ...prev, contrasena: "" }));
     setErrorApi("");
+  };
+
+  // Google OAuth handler
+  const handleGoogleLogin = async () => {
+    if (googleCargando) return;
+
+    try {
+      setGoogleCargando(true);
+      setErrorApi("");
+
+      // Generar state aleatorio para CSRF protection
+      const state = Math.random().toString(36).substring(2, 15);
+
+      // Obtener URL de autorización
+      const { auth_url } = await authService.getGoogleAuthURL(state);
+
+      // Guardar state en sessionStorage para verificar después
+      sessionStorage.setItem("google_oauth_state", state);
+
+      // Redirigir a Google
+      window.location.href = auth_url;
+
+    } catch (error) {
+      console.error("Error iniciando OAuth con Google:", error);
+      setErrorApi("Error al conectar con Google. Inténtalo de nuevo.");
+      setGoogleCargando(false);
+    }
   };
 
   const formularioDeshabilitado = cargando || bloqueado;
@@ -238,6 +279,37 @@ export default function Login() {
               <span>{errorApi}</span>
             </div>
           )}
+
+          {/* Botón de Google OAuth */}
+          <div style={styles.grupo}>
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={googleCargando || bloqueado}
+              style={{
+                ...styles.botonGoogle,
+                ...(googleCargando || bloqueado ? styles.botonDeshabilitado : {}),
+              }}
+              aria-busy={googleCargando}
+            >
+              {googleCargando ? (
+                <span style={styles.contenedorCargando}>
+                  <span style={styles.spinner} aria-hidden="true" role="presentation" />
+                  Conectando con Google...
+                </span>
+              ) : (
+                <>
+                  <span style={styles.iconoGoogle}>🌐</span>
+                  Continuar con Google
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Separador */}
+          <div style={styles.separador}>
+            <span style={styles.separadorTexto}>o</span>
+          </div>
 
           <form onSubmit={handleSubmit} noValidate style={styles.formulario}>
             <div style={styles.grupo}>
@@ -332,16 +404,17 @@ export default function Login() {
             </button>
           </form>
 
-          <div style={styles.infoRoles}>
-            <p style={styles.infoRolesTexto}>Roles disponibles en el sistema:</p>
-            <div style={styles.chips}>
-              {["Administrador", "Caficultor", "Productor", "Comercializador", "Consumidor"].map(
-                (rol) => (
-                  <span key={rol} style={styles.chip}>{rol}</span>
-                )
-              )}
-            </div>
+          <div style={styles.registroContainer}>
+            <p style={styles.registroTexto}>¿No tienes cuenta?</p>
+            <button
+              type="button"
+              onClick={() => navigate("/register")}
+              style={styles.botonRegistro}
+            >
+              Crear cuenta
+            </button>
           </div>
+
         </div>
 
         <p style={styles.footer}>
@@ -563,37 +636,66 @@ const styles = {
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
   },
-  infoRoles: {
-    marginTop: "28px",
+  registroContainer: {
+    textAlign: "center",
+    marginTop: "20px",
     paddingTop: "20px",
     borderTop: "1px solid #F0F0F0",
   },
-  infoRolesTexto: {
-    fontSize: "11px",
-    color: "#AAA",
+  registroTexto: {
+    fontSize: "13px",
+    color: "#777",
     margin: "0 0 8px 0",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    fontWeight: "600",
   },
-  chips: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "6px",
-  },
-  chip: {
-    fontSize: "11px",
-    backgroundColor: `${VERDE_CAFE}15`,
+  botonRegistro: {
+    backgroundColor: "transparent",
     color: VERDE_CAFE,
-    padding: "3px 10px",
-    borderRadius: "20px",
+    border: `1px solid ${VERDE_CAFE}`,
+    borderRadius: "8px",
+    padding: "10px 20px",
+    fontSize: "14px",
     fontWeight: "600",
-    border: `1px solid ${VERDE_CAFE}30`,
+    cursor: "pointer",
+    transition: "all 0.2s",
   },
   footer: {
     textAlign: "center",
     fontSize: "11px",
     color: "#AAA",
     marginTop: "20px",
+  },
+
+  // Google OAuth styles
+  botonGoogle: {
+    width: "100%",
+    backgroundColor: "#4285F4",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    padding: "12px 20px",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+  },
+  iconoGoogle: {
+    fontSize: "16px",
+  },
+  separador: {
+    display: "flex",
+    alignItems: "center",
+    margin: "20px 0",
+    textAlign: "center",
+  },
+  separadorTexto: {
+    backgroundColor: "white",
+    padding: "0 16px",
+    color: "#777",
+    fontSize: "12px",
+    fontWeight: "500",
   },
 };

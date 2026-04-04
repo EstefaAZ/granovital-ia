@@ -21,10 +21,10 @@
 
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, Integer, DateTime, Numeric,
+    Integer, DateTime, Numeric,
     Enum, ForeignKey, String, Text,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -53,28 +53,28 @@ class MonitoreoAmbiental(Base):
     """
     __tablename__ = "tbl_monitoreo_ambiental"
 
-    id_monitoreo      = Column(Integer, primary_key=True, autoincrement=True)
-    temperatura       = Column(
+    id_monitoreo: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    temperatura: Mapped[float] = mapped_column(
         Numeric(5, 2), nullable=True,
         comment="Temperatura ambiental en grados Celsius"
     )
-    humedad_relativa  = Column(
+    humedad_relativa: Mapped[float] = mapped_column(
         Numeric(5, 2), nullable=True,
         comment="Humedad relativa del aire en porcentaje (0-100)"
     )
-    precipitacion_mm  = Column(
+    precipitacion_mm: Mapped[float] = mapped_column(
         Numeric(7, 2), nullable=True,
         comment="Precipitacion acumulada en milimetros"
     )
-    radiacion_solar   = Column(
+    radiacion_solar: Mapped[float] = mapped_column(
         Numeric(8, 2), nullable=True,
         comment="Radiacion solar incidente en W/m2"
     )
-    velocidad_viento  = Column(
+    velocidad_viento: Mapped[float] = mapped_column(
         Numeric(6, 2), nullable=True,
         comment="Velocidad del viento en km/h"
     )
-    origen_dato       = Column(
+    origen_dato: Mapped[str] = mapped_column(
         Enum("sensor_iot", "manual", "api_externa"),
         nullable=False,
         default="manual",
@@ -84,19 +84,19 @@ class MonitoreoAmbiental(Base):
             "api_externa: servicio meteorologico (RNF-09)"
         ),
     )
-    id_sensor         = Column(
+    id_sensor: Mapped[int] = mapped_column(
         Integer, nullable=True,
         comment="ID del sensor que genero la lectura (nulo si es manual)"
     )
-    observaciones     = Column(Text, nullable=True)
-    fecha_registro    = Column(
-        DateTime, nullable=False, default=datetime.utcnow,
+    observaciones: Mapped[str] = mapped_column(Text, nullable=True)
+    fecha_registro: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
         comment="Marca de tiempo UTC de la lectura - clave para RN-03"
     )
-    id_cultivo = Column(
-    Integer,
-    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE", use_alter=True),
-    nullable=False,
+    id_cultivo: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE", use_alter=True),
+        nullable=False,
     )
 
     def __repr__(self) -> str:
@@ -128,36 +128,36 @@ class MonitoreoSuelo(Base):
     """
     __tablename__ = "tbl_monitoreo_suelo"
 
-    id_monitoreo_suelo = Column(Integer, primary_key=True, autoincrement=True)
-    ph                 = Column(
+    id_monitoreo_suelo: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ph: Mapped[float] = mapped_column(
         Numeric(4, 2), nullable=True,
         comment="Potencial de hidrogeno del suelo (escala 0-14)"
     )
-    humedad_suelo      = Column(
+    humedad_suelo: Mapped[float] = mapped_column(
         Numeric(5, 2), nullable=True,
         comment="Humedad volumetrica del suelo en porcentaje (0-100)"
     )
-    nitrogeno          = Column(
+    nitrogeno: Mapped[float] = mapped_column(
         Numeric(8, 2), nullable=True,
         comment="Nitrogeno disponible en mg/kg"
     )
-    fosforo            = Column(
+    fosforo: Mapped[float] = mapped_column(
         Numeric(8, 2), nullable=True,
         comment="Fosforo disponible en mg/kg"
     )
-    potasio            = Column(
+    potasio: Mapped[float] = mapped_column(
         Numeric(8, 2), nullable=True,
         comment="Potasio disponible en mg/kg"
     )
-    materia_organica   = Column(
+    materia_organica: Mapped[float] = mapped_column(
         Numeric(5, 2), nullable=True,
         comment="Contenido de materia organica en porcentaje"
     )
-    conductividad_ec   = Column(
+    conductividad_ec: Mapped[float] = mapped_column(
         Numeric(6, 3), nullable=True,
         comment="Conductividad electrica del suelo en dS/m"
     )
-    origen_dato        = Column(
+    origen_dato: Mapped[str] = mapped_column(
         Enum("sensor_iot", "laboratorio", "manual"),
         nullable=False,
         default="manual",
@@ -167,19 +167,19 @@ class MonitoreoSuelo(Base):
             "manual: ingreso del caficultor (RNF-10)"
         ),
     )
-    id_sensor          = Column(
+    id_sensor: Mapped[int] = mapped_column(
         Integer, nullable=True,
         comment="ID del sensor IoT que genero la lectura"
     )
-    observaciones      = Column(Text, nullable=True)
-    fecha_registro     = Column(
-        DateTime, nullable=False, default=datetime.utcnow,
+    observaciones: Mapped[str] = mapped_column(Text, nullable=True)
+    fecha_registro: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc),
         comment="Marca de tiempo UTC de la lectura - clave para RN-03"
     )
-    id_cultivo = Column(
-    Integer,
-    ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE", use_alter=True),
-    nullable=False,
+    id_cultivo: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("tbl_cultivo.id_cultivo", ondelete="CASCADE", use_alter=True),
+        nullable=False,
     )
 
     def __repr__(self) -> str:

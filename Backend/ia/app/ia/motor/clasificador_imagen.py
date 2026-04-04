@@ -312,5 +312,5 @@ class ClasificadorImagen:
 def obtener_recomendacion(tipo: str, diagnostico: str) -> Tuple[str, str]:
     """Retorna (recomendacion, nivel_urgencia) segun tipo y diagnostico."""
     catalogo = ENFERMEDADES if tipo == "enfermedad" else PLAGAS
-    entrada  = catalogo.get(diagnostico, catalogo.get("sano"))
+    entrada  = catalogo.get(diagnostico, catalogo["sano"])
     return entrada["reco"], entrada["urgencia"]
