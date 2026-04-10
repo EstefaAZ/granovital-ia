@@ -413,8 +413,8 @@ export default function Cultivos() {
                 onClick={() => seleccionarCultivo(c)}
                 style={{
                   ...estilos.itemCultivo,
-                  border: `2px solid ${cultivoActivo?.id_cultivo === c.id_cultivo
-                    ? COLOR.cafe : COLOR.borde}`,
+                  borderColor: cultivoActivo?.id_cultivo === c.id_cultivo
+                    ? COLOR.cafe : COLOR.borde,
                   background: cultivoActivo?.id_cultivo === c.id_cultivo
                     ? "#f9f3ee" : "#fff",
                 }}

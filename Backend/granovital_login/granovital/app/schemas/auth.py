@@ -156,6 +156,17 @@ class RegisterRequest(BaseModel):
             raise ValueError("La contraseña debe contener al menos un número")
         return v
 
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("El nombre completo es obligatorio")
+        if not re.match(r"^[a-záéíóúñüA-ZÁÉÍÓÚÑÜ\s]+$", v):
+            raise ValueError("El nombre solo debe contener letras y espacios")
+        if len(v.strip()) < 2:
+            raise ValueError("El nombre debe tener al menos 2 caracteres")
+        return v.strip()
+
     @field_validator("telefono")
     @classmethod
     def validar_telefono(cls, v: str) -> str:
@@ -208,7 +219,7 @@ class RegisterRequest(BaseModel):
                 "tipo_proceso": "lavado",
                 "unidades_preferidas": "kg",
                 "canal_alertas": "WhatsApp",
-                "codigo_verificacion": "123456"
+                "codigo_verificacion": "A1B2C"
             }
         }
     )

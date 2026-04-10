@@ -23,8 +23,21 @@ class EmailService:
 
     @staticmethod
     def _generar_codigo_verificacion(length: int = settings.EMAIL_VERIFICATION_CODE_LENGTH) -> str:
-        """Genera un código de verificación aleatorio."""
-        return ''.join(random.choices(string.digits, k=length))
+        """Genera un código de verificación aleatorio con letras y números."""
+        # Generar códigos variados: letras, números o mixtos
+        tipo = random.choice(['letras', 'numeros', 'mixto'])
+        
+        if tipo == 'letras':
+            # Solo letras mayúsculas (sin ambigüedades como O/0, l/1)
+            caracteres = 'ABCDEFGHJKMNPQRSTUVWXYZ'
+        elif tipo == 'numeros':
+            # Solo números
+            caracteres = '0123456789'
+        else:  # mixto
+            # Letras y números (sin ambigüedades)
+            caracteres = 'ABCDEFGHJKMNPQRSTUVWXYZ0123456789'
+        
+        return ''.join(random.choices(caracteres, k=length))
 
     @staticmethod
     def enviar_codigo_verificacion(correo: str) -> str:

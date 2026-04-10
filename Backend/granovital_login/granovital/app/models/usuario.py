@@ -88,6 +88,9 @@ class Usuario(Base):
     correo: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
     contrasena: Mapped[str] = mapped_column(String(255), nullable=False, comment="Hash bcrypt — nunca texto plano")
     telefono: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    tipo_documento: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, comment="Tipo de documento: Cédula, Pasaporte")
+    documento: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, comment="Número de documento de identidad")
+    municipio: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, comment="Municipio de residencia")
     fecha_registro: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     estado_cuenta: Mapped[str] = mapped_column(
         Enum("activo", "inactivo", "suspendido"),

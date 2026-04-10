@@ -274,10 +274,12 @@ export const authService = {
   },
 
   async handleGoogleCallback(code, state = null) {
-    const response = await fetch(`${API_BASE}/auth/google/callback`, {
-      method: "POST",
+    const params = new URLSearchParams({ code });
+    if (state) params.append("state", state);
+    
+    const response = await fetch(`${API_BASE}/auth/google/callback?${params}`, {
+      method: "GET",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, state }),
     });
 
     if (!response.ok) {

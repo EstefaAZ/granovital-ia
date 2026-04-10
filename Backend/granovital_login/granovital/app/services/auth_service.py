@@ -289,13 +289,14 @@ class AuthService:
                 detail="El correo electrónico ya está registrado",
             )
 
-        # Verificar código de verificación usando Redis
-        verification_service = VerificationService()
-        if not verification_service.verify_code(datos["correo"], datos.get("codigo_verificacion", "")):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Código de verificación incorrecto o expirado",
-            )
+        # Verificar código de verificación usando Redis (solo en producción)
+        if settings.EMAIL_ENABLED:
+            verification_service = VerificationService()
+            if not verification_service.verify_code(datos["correo"], datos.get("codigo_verificacion", "")):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Código de verificación incorrecto o expirado",
+                )
 
         # Obtener rol
         rol = self.db.query(Rol).filter(Rol.nombre_rol == datos["rol"]).first()
@@ -371,9 +372,10 @@ class AuthService:
             },
         }
 
-    def enviar_codigo_verificacion(self, correo: str) -> None:
+    def enviar_codigo_verificacion(self, correo: str) -> str:
         """
         Envía código de verificación por email y lo almacena en Redis.
+        Retorna el código generado (útil para modo desarrollo/testing).
         """
         try:
             # Generar y enviar código
@@ -384,6 +386,8 @@ class AuthService:
             verification_service.store_verification_code(correo, codigo)
 
             logger.info(f"Código de verificación enviado y almacenado para: {correo}")
+
+            return codigo
 
         except Exception as e:
             logger.error(f"Error enviando código de verificación a {correo}: {str(e)}")

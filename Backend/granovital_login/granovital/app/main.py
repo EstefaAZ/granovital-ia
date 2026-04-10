@@ -8,7 +8,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -91,6 +91,10 @@ async def global_exception_handler(request: Request, exc: Exception):
     Captura errores no manejados para evitar exponer stack traces
     en producción (RNF-04 — seguridad de la información).
     """
+    # No manejar HTTPException, dejar que FastAPI lo maneje
+    if isinstance(exc, HTTPException):
+        raise exc
+    
     logger.error(f"Error no manejado en {request.url}: {exc}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

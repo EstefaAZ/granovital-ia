@@ -6,10 +6,11 @@
 
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, status, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.core.security import (
     get_current_user_id,
     get_current_user_payload,
@@ -283,7 +284,6 @@ async def register(
 
 @router.post(
     "/send-verification-code",
-    response_model=MensajeResponse,
     status_code=status.HTTP_200_OK,
     summary="Enviar código de verificación",
     description="Envía un código de verificación al correo electrónico para completar el registro.",
@@ -291,19 +291,26 @@ async def register(
 def send_verification_code(
     body: SendVerificationCodeRequest,
     db: Session = Depends(get_db),
-) -> MensajeResponse:
+) -> dict:
     """
     Envía código de verificación por email para validar la dirección de correo.
+    En modo desarrollo (EMAIL_ENABLED=false) retorna el código para testing.
     """
     service = AuthService(db)
-    service.enviar_codigo_verificacion(body.correo)
+    codigo = service.enviar_codigo_verificacion(body.correo)
 
     logger.info(f"Código de verificación enviado a: {body.correo}")
 
-    return MensajeResponse(
-        mensaje="Código de verificación enviado correctamente.",
-        exitoso=True,
-    )
+    # En desarrollo, incluir el código en la respuesta para testing
+    respuesta = {
+        "mensaje": "Código de verificación enviado correctamente.",
+        "exitoso": True,
+    }
+    
+    if not settings.EMAIL_ENABLED:
+        respuesta["codigo_desarrollo"] = codigo
+
+    return respuesta
 
 
 # =============================================================
@@ -367,7 +374,13 @@ async def get_google_auth_url(
         URL de autorización de Google
     """
     service = AuthService(db)
-    auth_url = service.get_google_auth_url(state)
+    try:
+        auth_url = service.get_google_auth_url(state)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
 
     return GoogleAuthURLResponse(
         auth_url=auth_url,
@@ -375,32 +388,42 @@ async def get_google_auth_url(
     )
 
 
-@router.post(
+@router.get(
     "/google/callback",
     response_model=GoogleOAuthResponse,
     summary="Callback de Google OAuth",
     description="Procesa el callback de Google OAuth y autentica/registra al usuario."
 )
 async def google_oauth_callback(
-    request: GoogleOAuthCallbackRequest,
-    req: Request,
+    code: str,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    req: Request = None,
     db: Session = Depends(get_db),
 ) -> GoogleOAuthResponse:
     """
     Maneja el callback de Google OAuth.
 
     Args:
-        request: Datos del callback (código de autorización)
+        code: Código de autorización de Google
+        state: Estado opcional
+        error: Error opcional de Google
         req: Request object para obtener IP del cliente
 
     Returns:
         Respuesta de autenticación con tokens JWT
     """
-    ip_cliente = get_client_ip(req)
+    if error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error en OAuth: {error}"
+        )
+
+    ip_cliente = get_client_ip(req) if req else "desconocida"
     service = AuthService(db)
 
     result = await service.handle_google_oauth_callback(
-        code=request.code,
+        code=code,
         ip_cliente=ip_cliente
     )
 

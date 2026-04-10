@@ -89,7 +89,6 @@ export default function Register() {
   const [cargando, setCargando] = useState(false);
   const [codigoEnviado, setCodigoEnviado] = useState(false);
   const [estadoCodigo, setEstadoCodigo] = useState(null);
-  const [codigoDesarrollo, setCodigoDesarrollo] = useState(null);
   const [verificarEstadoInterval, setVerificarEstadoInterval] = useState(null);
 
   const actualizarDato = (campo, valor) => {
@@ -138,42 +137,6 @@ export default function Register() {
       setErrores(prev => ({ ...prev, documento: errorTiempoReal }));
     } else if (errores.documento && errores.documento !== "Documento es obligatorio") {
       setErrores(prev => ({ ...prev, documento: "" }));
-    }
-  };
-
-  const actualizarTelefono = (valor) => {
-    // Validación en tiempo real para el campo teléfono
-    // Solo permitir números y máximo 10 dígitos
-    const valorFiltrado = valor.replace(/[^0-9]/g, '').substring(0, 10);
-
-    actualizarDato("telefono", valorFiltrado);
-
-    // Validar y mostrar errores en tiempo real
-    if (valorFiltrado && !/^\d{10}$/.test(valorFiltrado)) {
-      if (valorFiltrado.length < 10) {
-        setErrores(prev => ({ ...prev, telefono: `Faltan ${10 - valorFiltrado.length} dígitos` }));
-      } else {
-        setErrores(prev => ({ ...prev, telefono: "" }));
-      }
-    } else if (errores.telefono && errores.telefono !== "Teléfono es obligatorio") {
-      setErrores(prev => ({ ...prev, telefono: "" }));
-    }
-  };
-
-  const actualizarNombre = (valor) => {
-    // Validación en tiempo real para el campo nombre
-    // Solo permitir letras, espacios y acentos — eliminar números
-    const valorFiltrado = valor.replace(/[^a-záéíóúñüA-ZÁÉÍÓÚÑÜ\s]/g, '');
-
-    actualizarDato("nombre", valorFiltrado);
-
-    // Validar y mostrar errores en tiempo real
-    if (!valorFiltrado.trim()) {
-      setErrores(prev => ({ ...prev, nombre: "Nombre completo es obligatorio" }));
-    } else if (!/^[a-záéíóúñüA-ZÁÉÍÓÚÑÜ\s]+$/.test(valorFiltrado)) {
-      setErrores(prev => ({ ...prev, nombre: "Solo se permiten letras y espacios" }));
-    } else {
-      setErrores(prev => ({ ...prev, nombre: "" }));
     }
   };
 
@@ -320,16 +283,9 @@ export default function Register() {
 
     setCargando(true);
     try {
-      const respuesta = await authService.enviarCodigoVerificacion(datos.correo);
+      await authService.enviarCodigoVerificacion(datos.correo);
       setCodigoEnviado(true);
       setErrores({});
-
-      // Si está en modo desarrollo, mostrar el código
-      if (respuesta.codigo_desarrollo) {
-        setCodigoDesarrollo(respuesta.codigo_desarrollo);
-        // Auto-llenar el campo de código para desarrollo rápido
-        actualizarDato("codigoVerificacion", respuesta.codigo_desarrollo);
-      }
 
       // Iniciar verificación periódica del estado
       verificarEstadoCodigo();
@@ -351,94 +307,19 @@ export default function Register() {
     if (valido) setPaso(paso + 1);
   };
 
-  const pasoAnterior = () => {
-    setPaso(paso - 1);
-    // Limpiar estado del código cuando retrocedes
-    if (paso === 4) {
-      setCodigoDesarrollo(null);
-      setCodigoEnviado(false);
-      if (verificarEstadoInterval) {
-        clearInterval(verificarEstadoInterval);
-      }
-    }
-  };
-
-  // Mapear datos de camelCase (frontend) a snake_case (backend)
-  const mapearDatosAlBackend = (datosLocal) => {
-    return {
-      // Paso 1 - Datos personales
-      nombre: datosLocal.nombre,
-      correo: datosLocal.correo,
-      contrasena: datosLocal.contrasena,
-      telefono: datosLocal.telefono,
-      tipo_documento: datosLocal.tipoDocumento,
-      documento: datosLocal.documento,
-      municipio: datosLocal.municipio,
-
-      // Paso 2 - Rol
-      rol: datosLocal.rol,
-
-      // Paso 3 - Datos específicos por rol
-      // Admin
-      codigo_autorizacion: datosLocal.codigoAutorizacion || undefined,
-      institucion: datosLocal.institucion || undefined,
-
-      // Caficultor
-      nombre_finca: datosLocal.nombreFinca || undefined,
-      vereda: datosLocal.vereda || undefined,
-      area_cultivada: datosLocal.areaCultivada || undefined,
-      altitud: datosLocal.altitud || undefined,
-      variedad_principal: datosLocal.variedadPrincipal || undefined,
-      sistema_cultivo: datosLocal.sistemaCultivo || undefined,
-      tipo_proceso: datosLocal.tipoProceso || undefined,
-      unidades_preferidas: datosLocal.unidadesPreferidas || undefined,
-      canal_alertas: datosLocal.canalAlertas || undefined,
-
-      // Productor
-      nombre_finca_planta: datosLocal.nombreFincaPlanta || undefined,
-      vereda_productor: datosLocal.veredaProductor || undefined,
-      area_cultivada_productor: datosLocal.areaCultivadaProductor || undefined,
-      altitud_productor: datosLocal.altitudProductor || undefined,
-      variedad_principal_productor: datosLocal.variedadPrincipalProductor || undefined,
-      tipos_proceso: datosLocal.tiposProceso || undefined,
-      presta_maquila: datosLocal.prestaMaquila || undefined,
-      unidades_preferidas_productor: datosLocal.unidadesPreferidasProductor || undefined,
-      canal_alertas_productor: datosLocal.canalAlertasProductor || undefined,
-
-      // Comercializador
-      nombre_empresa: datosLocal.nombreEmpresa || undefined,
-      nit: datosLocal.nit || undefined,
-      dv: datosLocal.dv || undefined,
-      tipo_comercializador: datosLocal.tipoComercializador || undefined,
-      region_interes: datosLocal.regionInteres || undefined,
-      preferencia_calidad: datosLocal.preferenciaCalidad || undefined,
-
-      // Consumidor
-      apodo: datosLocal.apodo || undefined,
-      pais_residencia: datosLocal.paisResidencia || undefined,
-      preferencia_cafe: datosLocal.preferenciaCafe || undefined,
-
-      // Paso 4 - Confirmación
-      codigo_verificacion: datosLocal.codigoVerificacion,
-    };
-  };
+  const pasoAnterior = () => setPaso(paso - 1);
 
   const registrar = async () => {
     if (!validarPaso4()) return;
 
     setCargando(true);
     try {
-      // Convertir datos de camelCase a snake_case para el backend
-      const datosAlBackend = mapearDatosAlBackend(datos);
-      
-      // Remover campos vacíos/undefined para no enviar datos innecesarios
-      Object.keys(datosAlBackend).forEach(key => {
-        if (datosAlBackend[key] === undefined || datosAlBackend[key] === '') {
-          delete datosAlBackend[key];
-        }
-      });
-
-      await authService.registrar(datosAlBackend);
+      const datosRegistro = {
+        ...datos,
+        telefono: datos.telefono,
+        documento: datos.documento,
+      };
+      await authService.registrar(datosRegistro);
       // Redirigir al login o directamente loguear
       navigate("/login");
     } catch (error) {
@@ -460,34 +341,11 @@ export default function Register() {
   const renderPaso1 = () => (
     <div>
       <h3 style={styles.tituloPaso}>Paso 1 — Datos personales</h3>
-      <CampoTexto label="Nombre completo" value={datos.nombre} onChange={actualizarNombre} error={errores.nombre} />
-      <div style={{
-        fontSize: '12px',
-        color: datos.nombre && !errores.nombre && /^[a-záéíóúñüA-ZÁÉÍÓÚÑÜ\s]+$/.test(datos.nombre) ? '#2D6A4F' : '#666',
-        marginTop: '-10px',
-        marginBottom: '10px'
-      }}>
-        {datos.nombre && !errores.nombre && /^[a-záéíóúñüA-ZÁÉÍÓÚÑÜ\s]+$/.test(datos.nombre) ? (
-          <span>✅ Solo letras y espacios</span>
-        ) : (
-          <span>Solo se permiten letras y espacios</span>
-        )}
-      </div>
+      <CampoTexto label="Nombre completo" value={datos.nombre} onChange={v => actualizarDato("nombre", v)} error={errores.nombre} />
       <CampoTexto label="Correo electrónico" type="email" value={datos.correo} onChange={v => actualizarDato("correo", v)} error={errores.correo} />
       <CampoTexto label="Contraseña" type="password" value={datos.contrasena} onChange={v => actualizarDato("contrasena", v)} error={errores.contrasena} />
       <CampoTexto label="Confirmar contraseña" type="password" value={datos.confirmarContrasena} onChange={v => actualizarDato("confirmarContrasena", v)} error={errores.confirmarContrasena} />
-      <CampoTexto label="Teléfono / WhatsApp" value={datos.telefono} onChange={actualizarTelefono} error={errores.telefono} placeholder="3001234567" />
-      <div style={{
-        fontSize: '12px',
-        color: datos.telefono && !errores.telefono && /^\d{10}$/.test(datos.telefono) ? '#2D6A4F' : '#666',
-        marginTop: '5px'
-      }}>
-        {datos.telefono && !errores.telefono && /^\d{10}$/.test(datos.telefono) ? (
-          <span>✅ Teléfono válido</span>
-        ) : (
-          <span>Solo números, exactamente 10 dígitos</span>
-        )}
-      </div>
+      <CampoTexto label="Teléfono / WhatsApp" value={datos.telefono} onChange={v => actualizarDato("telefono", v)} error={errores.telefono} placeholder="3001234567" />
       <div style={styles.grupo}>
         <label style={styles.etiqueta}>Tipo de documento</label>
         <select value={datos.tipoDocumento} onChange={e => cambiarTipoDocumento(e.target.value)} style={styles.select}>
@@ -679,22 +537,6 @@ export default function Register() {
         <button type="button" onClick={enviarCodigo} disabled={cargando || codigoEnviado} style={styles.botonSecundario}>
           {codigoEnviado ? "Código enviado" : "Enviar código de verificación"}
         </button>
-        {codigoDesarrollo && (
-          <div style={{
-            marginTop: '15px',
-            padding: '15px',
-            backgroundColor: '#FFF3CD',
-            border: '1px solid #FFD700',
-            borderRadius: '8px',
-            color: '#856404',
-            fontSize: '14px',
-            fontWeight: '600',
-          }}>
-            ⚙️ <strong>Modo Desarrollo</strong><br/>
-            Código de verificación: <code style={{ backgroundColor: '#fff', padding: '4px 8px', borderRadius: '4px', marginLeft: '5px' }}>{codigoDesarrollo}</code>
-            <br/><small>(Copiado automáticamente al campo)</small>
-          </div>
-        )}
         {estadoCodigo && (
           <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
             {estadoCodigo.has_active_code ? (
@@ -710,7 +552,7 @@ export default function Register() {
           </div>
         )}
       </div>
-      <CampoTexto label="Código de verificación" value={datos.codigoVerificacion} onChange={v => actualizarDato("codigoVerificacion", v.toUpperCase().slice(0, 5))} error={errores.codigoVerificacion} placeholder="Máx. 5 caracteres" />
+      <CampoTexto label="Código de verificación" value={datos.codigoVerificacion} onChange={v => actualizarDato("codigoVerificacion", v)} error={errores.codigoVerificacion} />
       {errores.general && <div style={styles.alertaError}>{errores.general}</div>}
     </div>
   );
@@ -873,7 +715,7 @@ const styles = {
   pasoCirculoActivo: {
     backgroundColor: VERDE_CAFE,
     color: "white",
-    border: `2px solid ${VERDE_CAFE}`,
+    borderColor: VERDE_CAFE,
   },
   tituloPaso: {
     fontSize: "18px",
@@ -904,7 +746,7 @@ const styles = {
     color: "#1A1A1A",
   },
   inputError: {
-    border: `1.5px solid ${ROJO_ERROR}`,
+    borderColor: ROJO_ERROR,
     backgroundColor: "#FFF8F8",
   },
   select: {
@@ -945,7 +787,7 @@ const styles = {
     textAlign: "center",
   },
   rolButtonActive: {
-    border: `2px solid ${VERDE_CAFE}`,
+    borderColor: VERDE_CAFE,
     backgroundColor: `${VERDE_CAFE}10`,
     color: VERDE_CAFE,
   },

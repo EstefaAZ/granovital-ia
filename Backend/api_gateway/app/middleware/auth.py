@@ -15,6 +15,11 @@ RUTAS_PUBLICAS = {
     "/openapi.json",
     "/api/v1/auth/login",
     "/api/v1/auth/refresh",
+    "/api/v1/auth/register",
+    "/api/v1/auth/send-verification-code",
+    "/api/v1/auth/verify-code-status",
+    "/api/v1/auth/google/auth-url",
+    "/api/v1/auth/google/callback",
 }
 
 # Headers CORS que se agregan manualmente a respuestas de error del middleware.

@@ -579,7 +579,7 @@ const styles = {
     color: "#1A1A1A",
   },
   inputError: {
-    border: `1.5px solid ${ROJO_ERROR}`,
+    borderColor: ROJO_ERROR,
     backgroundColor: "#FFF8F8",
   },
   mensajeError: {

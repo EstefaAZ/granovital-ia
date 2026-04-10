@@ -60,7 +60,7 @@ class Settings(BaseSettings):
 
     # ── Verificación de email ──────────────────────────────────
     EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES: int = 15
-    EMAIL_VERIFICATION_CODE_LENGTH: int = 6
+    EMAIL_VERIFICATION_CODE_LENGTH: int = 5
 
     # ── Google OAuth ──────────────────────────────────────────
     GOOGLE_OAUTH_ENABLED: bool = False
